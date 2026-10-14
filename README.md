@@ -43,6 +43,11 @@ dsh already there → use dsh-control.
 
 ## What it does
 
+![The remote dsh environments panel](https://raw.githubusercontent.com/6mt/dsh-control/main/docs/panel.png)
+
+*The「远程 dsh 环境」panel: type `user@host` and connect — the row then reports its state and
+whether the environment already has its workspace.*
+
 - **One-click connect** — type `user@host`; the plugin probes the remote dsh, fetches
   its access token and opens an encrypted channel (~5 s)
 - **Automatic workspace** — each environment gets a same-named local workspace; any

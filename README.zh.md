@@ -37,6 +37,10 @@ dsh plugin --profile <你的profile> add dsh-control
 
 ## 功能
 
+![远程 dsh 环境面板](https://raw.githubusercontent.com/6mt/dsh-control/main/docs/panel.png)
+
+*「远程 dsh 环境」面板：填 `user@host` 即可连接；环境行会显示状态与是否已有工作区。*
+
 - **一键接入**：填 `user@host`，自动探测远端 dsh、取访问令牌、建加密通道（约 5 秒）
 - **自动工作区**：每个环境在本地生成同名工作区；在里面新建会话即**自动成为远端会话**
 - **真流式**：远端回复逐字流入本地对话，不是等整轮蹦出

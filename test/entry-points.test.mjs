@@ -73,3 +73,12 @@ test("the panel is told about a missing Workspace, not just handed a success", (
 	assert.equal(guards.length, 2, "connect() and adopt() must both route the result through the notice verdict");
 	assert.match(client, /workspaceError/, "the panel must know why a Workspace is missing");
 });
+
+test("an environment row separates its name from the status summary", () => {
+	// Regression: the row renders name + summary adjacently, so a missing
+	// separator produced "cn-dsh2已连接" in the panel.
+	const client = readFileSync(new URL("../lib/client.js", import.meta.url), "utf8");
+	const line = client.split("\n").find((row) => row.includes("collapsedContent"));
+	assert.ok(line, "the environment row must render a summary");
+	assert.match(line, /` · \$\{summary\}`/, "the summary must carry its own separator; the row adds no spacing");
+});
