@@ -7,9 +7,11 @@
 在本地 dsh 里直接和**其他机器上的 dsh** 对话：远端会话原生出现在你的侧栏，流式逐字返回；
 远端用它自己的模型凭据、工具与沙盒干活。零远端改动、零依赖、一条命令安装。
 
-![两种做法的对比](https://raw.githubusercontent.com/6mt/dsh-control/main/docs/compare.svg)
+![dsh-control 实际运行](https://raw.githubusercontent.com/6mt/dsh-control/main/docs/hero.png)
 
-> 🎬 15 秒实拍（一键接入 → 侧栏出现远端会话 → 流式回复）即将补充。
+*真实的两机场景。**左**：远端机器自己的 dsh——那条会话是插件为你创建的，并自动命名为 `控制端·<本地标题>`（①）。**右**：你本地的 dsh——同一个问题由远端执行（③ 模型路由就是环境名 `cn-dsh2`），回答落在插件为该环境自动创建的工作区里的本地会话中（②）。*
+
+> 🎬 15 秒实拍（一键接入 → 流式回复）正在录制。
 
 ## 安装
 
@@ -20,6 +22,8 @@ dsh plugin --profile <你的profile> add dsh-control
 安装后**完全退出并重开 dsh**（⌘Q），右侧边栏出现「远程 dsh 环境」面板。
 
 ## 它和 dsh-remote / dsh-remote-ssh 有什么不同？
+
+![两种做法的对比](https://raw.githubusercontent.com/6mt/dsh-control/main/docs/compare.svg)
 
 | | 远程工作区类插件（dsh-remote 等） | **dsh-control** |
 |---|---|---|

@@ -8,10 +8,14 @@ Chat with the dsh instances on your other machines, natively from your local sid
 Remote sessions stream back token by token; the remote uses its own model credentials,
 tools and sandbox. Zero changes on the remote. Zero dependencies. One-line install.
 
-![How the two approaches differ](https://raw.githubusercontent.com/6mt/dsh-control/main/docs/compare.svg)
+![dsh-control in action](https://raw.githubusercontent.com/6mt/dsh-control/main/docs/hero.png)
 
-> 🎬 A 15-second capture (one-click connect → remote sessions appear in the sidebar →
-> streaming reply) is coming soon.
+*A real two-machine setup. **Left**: the remote machine's own dsh — the session there was created
+for you and auto-named `控制端·<local title>` (①). **Right**: your local dsh — the same question
+runs on the remote (③ the model route is the environment name, `cn-dsh2`) and the answer lands in a
+local session inside the workspace the plugin created for that environment (②).*
+
+> 🎬 A 15-second capture (one-click connect → streaming reply) is being recorded.
 
 ## Install
 
@@ -23,6 +27,8 @@ After installing, **fully quit and reopen dsh** (⌘Q). A「远程 dsh 环境」
 in the right sidebar.
 
 ## How is this different from dsh-remote / dsh-remote-ssh?
+
+![How the two approaches differ](https://raw.githubusercontent.com/6mt/dsh-control/main/docs/compare.svg)
 
 | | Remote-workspace plugins (dsh-remote, …) | **dsh-control** |
 |---|---|---|
