@@ -11,7 +11,9 @@ Chat with the dsh instances on your other machines, natively from your local sid
 Remote sessions stream back token by token; the remote uses its own model credentials,
 tools and sandbox. Zero changes on the remote. Zero dependencies. One-line install.
 
-![demo](docs/demo.gif)
+![两种做法的对比](https://raw.githubusercontent.com/6mt/dsh-control/main/docs/compare.svg)
+
+> 🎬 15 秒实拍 GIF（一键接入 → 侧栏出现远端会话 → 流式回复）即将补充。
 
 ## 安装 · Install
 
