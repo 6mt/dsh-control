@@ -1,7 +1,7 @@
 {
   "name": "dsh-control",
   "version": "0.1.0",
-  "description": "dsh-control: connect and manage remote dsh web instances from the local GUI — SSH-tunnel onboarding wizard, live session browser, one-click remote GUI handoff.",
+  "description": "One local window for the dsh instances on all your machines — remote sessions stream natively into your sidebar. 本地一个窗口，驱动你所有机器上的 dsh。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
