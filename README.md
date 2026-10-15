@@ -20,11 +20,28 @@ local session inside the workspace the plugin created for that environment (②)
 ## Install
 
 ```sh
-dsh plugin --profile <profile> add dsh-control
+dsh plugin --profile <your profile> add github:6mt/dsh-control
 ```
+
+Use the profile you already run (usually `web` or `desktop`). No build step, no native
+modules, no dependencies — the plugin is plain JavaScript and installs as-is.
+
+<details>
+<summary>GitHub slow or blocked? Install from the release tarball instead</summary>
+
+Download [dsh-control-0.1.0.tgz](https://github.com/6mt/dsh-control/releases/download/v0.1.0/dsh-control-0.1.0.tgz)
+and run:
+
+```sh
+dsh plugin --profile <your profile> add ./dsh-control-0.1.0.tgz
+```
+</details>
 
 After installing, **fully quit and reopen dsh** (⌘Q). A「远程 dsh 环境」panel appears
 in the right sidebar.
+
+> An npm package (`dsh-control`) is prepared and can be published later; the GitHub
+> command above is the current install path.
 
 ## How is this different from dsh-remote / dsh-remote-ssh?
 

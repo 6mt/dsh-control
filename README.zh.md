@@ -16,10 +16,25 @@
 ## 安装
 
 ```sh
-dsh plugin --profile <你的profile> add dsh-control
+dsh plugin --profile <你正在用的profile> add github:6mt/dsh-control
 ```
 
+填你**已经在用的那个 profile**（一般是 `web` 或 `desktop`）。无构建步骤、无原生模块、无依赖
+——插件是纯 JavaScript，装完即可用。
+
+<details>
+<summary>GitHub 慢或连不上？用 Release 里的 tarball 安装</summary>
+
+下载 [dsh-control-0.1.0.tgz](https://github.com/6mt/dsh-control/releases/download/v0.1.0/dsh-control-0.1.0.tgz)，然后：
+
+```sh
+dsh plugin --profile <你正在用的profile> add ./dsh-control-0.1.0.tgz
+```
+</details>
+
 安装后**完全退出并重开 dsh**（⌘Q），右侧边栏出现「远程 dsh 环境」面板。
+
+> npm 包（`dsh-control`）已备好，日后可发布；当前安装路径就是上面这条 GitHub 命令。
 
 ## 它和 dsh-remote / dsh-remote-ssh 有什么不同？
 
