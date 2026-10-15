@@ -1,6 +1,6 @@
 {
   "name": "dsh-control",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "One local window for the dsh instances on all your machines — remote sessions stream natively into your sidebar. 本地一个窗口，驱动你所有机器上的 dsh。",
   "type": "module",
   "main": "lib/index.js",
