@@ -10,10 +10,10 @@ tools and sandbox. Zero changes on the remote. Zero dependencies. One-line insta
 
 ![dsh-control in action](https://raw.githubusercontent.com/6mt/dsh-control/main/docs/hero.png)
 
-*A real two-machine setup. **Left**: the remote machine's own dsh — the session there was created
-for you and auto-named `控制端·<local title>` (①). **Right**: your local dsh — the same question
-runs on the remote (③ the model route is the environment name, `cn-dsh2`) and the answer lands in a
-local session inside the workspace the plugin created for that environment (②).*
+*Two dsh windows answering the same question. The left window shows a session auto-named
+`控制端·<local title>` (①) — that naming only happens on the machine the plugin drives. The right
+window shows the workspace `cn-dsh2` the plugin created (②) and the model route set to the
+environment name (③).*
 
 > 🎬 A 15-second capture (one-click connect → streaming reply) is being recorded.
 
