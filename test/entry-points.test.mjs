@@ -70,7 +70,7 @@ test("the panel is told about a missing Workspace, not just handed a success", (
 	const client = readFileSync(new URL("../lib/client.js", import.meta.url), "utf8");
 	// Both entry points (one-click and manual) must consult the same verdict.
 	const guards = client.match(/notice = noticeFromConnectResult\(result\)/g) ?? [];
-	assert.equal(guards.length, 2, "connect() and adopt() must both route the result through the notice verdict");
+	assert.equal(guards.length, 3, "connect(), adopt() and adoptDirect() must all route the result through the notice verdict");
 	assert.match(client, /workspaceError/, "the panel must know why a Workspace is missing");
 });
 
