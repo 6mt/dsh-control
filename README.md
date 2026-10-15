@@ -43,6 +43,15 @@ in the right sidebar.
 > An npm package (`dsh-control`) is prepared and can be published later; the GitHub
 > command above is the current install path.
 
+## Versions & updating
+
+- **What you get**: `github:6mt/dsh-control` installs the newest commit of `main` and
+  **pins it in your profile's lockfile** — it does not silently follow later commits.
+- **Update**: `dsh plugin --profile <your profile> update dsh-control`
+  *(pnpm re-resolves the git ref and pulls the new code)*
+- **Pin a version**: `github:6mt/dsh-control#v0.1.0` (tag) or `github:6mt/dsh-control#<commit>`
+- Changes are recorded in [CHANGELOG.md](CHANGELOG.md).
+
 ## How is this different from dsh-remote / dsh-remote-ssh?
 
 ![How the two approaches differ](https://raw.githubusercontent.com/6mt/dsh-control/main/docs/compare.svg)

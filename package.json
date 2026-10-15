@@ -14,7 +14,8 @@
     "skills",
     "cordis.patch.yml",
     "README.md",
-    "SECURITY.md"
+    "SECURITY.md",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": ">=24",

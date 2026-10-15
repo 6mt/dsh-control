@@ -36,6 +36,15 @@ dsh plugin --profile <你正在用的profile> add ./dsh-control-0.1.0.tgz
 
 > npm 包（`dsh-control`）已备好，日后可发布；当前安装路径就是上面这条 GitHub 命令。
 
+## 版本与更新
+
+- **装上的是哪一版**：`github:6mt/dsh-control` 取 `main` 的**最新提交**，并在你的 profile
+  锁文件里**锁定到该 commit**——之后不会悄悄跟随后续提交
+- **升级**：`dsh plugin --profile <你正在用的profile> update dsh-control`
+  *（pnpm 会重新解析 git 引用并拉取新代码，已实测）*
+- **固定版本**：`github:6mt/dsh-control#v0.1.0`（按 tag）或 `github:6mt/dsh-control#<commit>`
+- 变更记录见 [CHANGELOG.md](CHANGELOG.md)
+
 ## 它和 dsh-remote / dsh-remote-ssh 有什么不同？
 
 ![两种做法的对比](https://raw.githubusercontent.com/6mt/dsh-control/main/docs/compare.svg)
