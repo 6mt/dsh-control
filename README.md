@@ -29,11 +29,11 @@ modules, no dependencies — the plugin is plain JavaScript and installs as-is.
 <details>
 <summary>GitHub slow or blocked? Install from the release tarball instead</summary>
 
-Download [dsh-control-0.1.0.tgz](https://github.com/6mt/dsh-control/releases/download/v0.1.0/dsh-control-0.1.0.tgz)
+Download [dsh-control-0.1.1.tgz](https://github.com/6mt/dsh-control/releases/download/v0.1.1/dsh-control-0.1.1.tgz)
 and run:
 
 ```sh
-dsh plugin --profile <your profile> add ./dsh-control-0.1.0.tgz
+dsh plugin --profile <your profile> add ./dsh-control-0.1.1.tgz
 ```
 </details>
 

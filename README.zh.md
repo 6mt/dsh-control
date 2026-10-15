@@ -25,10 +25,10 @@ dsh plugin --profile <你正在用的profile> add github:6mt/dsh-control
 <details>
 <summary>GitHub 慢或连不上？用 Release 里的 tarball 安装</summary>
 
-下载 [dsh-control-0.1.0.tgz](https://github.com/6mt/dsh-control/releases/download/v0.1.0/dsh-control-0.1.0.tgz)，然后：
+下载 [dsh-control-0.1.1.tgz](https://github.com/6mt/dsh-control/releases/download/v0.1.1/dsh-control-0.1.1.tgz)，然后：
 
 ```sh
-dsh plugin --profile <你正在用的profile> add ./dsh-control-0.1.0.tgz
+dsh plugin --profile <你正在用的profile> add ./dsh-control-0.1.1.tgz
 ```
 </details>
 
