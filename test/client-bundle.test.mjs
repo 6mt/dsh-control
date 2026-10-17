@@ -153,6 +153,8 @@ test("remote sessions are marked on their sidebar rows", async () => {
 				"sidebar.right.pane.tab.title",
 				"sidebar.session.row.leading",
 				"sidebar.workspaces.session.row.action",
+				"sidebar.panellist",
+				"main",
 			].includes(slot.name),
 			`unexpected slot registration: ${slot.name}`,
 		);
