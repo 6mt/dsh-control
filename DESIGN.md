@@ -165,7 +165,7 @@ dsh-control 模型适配器
 | 1 | 模型适配器：本地会话的模型调用 → 远端一轮 → 原生记录为本地 assistant 消息 | ✅ 沙箱验收：**无本地模型凭据**的实例提问，本地会话出现 `source:{provider:'dsh-control',model:'<环境>'}` 的 assistant 消息；单元测试 6 项 | ✅ |
 | 3 | 新建会话自动绑定到该路由（`session/created` 事件 + 落点判断） | ✅ 沙箱实测：在工作区里新建会话，`modelSelection` 立刻变为 `dsh-control/<环境>`；随后直接对话，助手回复"远端好"、`source` 指向该环境 | ✅ |
 | 4 | 会话行标识（`sidebar.session.row.leading` 小地球 + `sidebar.workspaces.session.row.action` 常驻"远程"标签） | ✅ 契约测试（8 项，断言只注册允许的插槽）；⚠️ **视觉需人工确认** | ✅ 代码 / ⚠️ 视觉 |
-| 2 | 远端目录 + 远端会话 rename 成「控制端·<本地标题>」 | ✅ 沙箱实测（重置状态后）：远端目录 = `/data/dsh/state/workspaces/<环境名>`（读的是远端 dsh 真实 DSH_HOME），远端会话标题 = `控制端·只回复一个字：好` | ✅ |
+| 2 | 远端目录 + 远端会话 rename 成「控制端·<本地标题>」 | ✅ 沙箱实测（重置状态后）：远端目录 = `<remote-dsh-dir>/state/workspaces/<环境名>`（读的是远端 dsh 真实 DSH_HOME），远端会话标题 = `控制端·只回复一个字：好` | ✅ |
 
 **场景一验收标准（已达成）**：在工作区里新建会话 → 自动成为远程会话 → 直接对话即由远端执行 → 回复原生落成本地消息 → 列表里有远程标识。
 

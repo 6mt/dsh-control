@@ -20,6 +20,15 @@ const files = readdirSync(join(root, "test"))
 	.filter((name) => name.endsWith(".test.mjs"))
 	.sort();
 
+// Privacy gate runs first: nothing else matters if private data could ship.
+const privacy = spawnSync(process.execPath, ["scripts/check-privacy.mjs"], { cwd: root, encoding: "utf8" });
+if (privacy.status !== 0) {
+	console.error("✖ privacy gate failed");
+	console.error(`${privacy.stdout ?? ""}${privacy.stderr ?? ""}`);
+	process.exit(1);
+}
+console.log(`✔ privacy gate  ${(privacy.stdout ?? "").trim()}`);
+
 let failed = 0;
 let passed = 0;
 const failures = [];
