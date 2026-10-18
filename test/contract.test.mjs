@@ -33,6 +33,23 @@ test("every api() the client calls is a registered Remote method", () => {
 	assert.deepEqual(missing, [], `unregistered client calls: ${missing.join(", ")}`);
 });
 
+test("every component the client renders is defined (no ReferenceError at runtime)", () => {
+	// A missing component only crashes when that branch renders — the whole
+	// panel went blank this way once. Catch it statically.
+	const defined = new Set([
+		...[...clientSource.matchAll(/function\s+([A-Z]\w*)\s*\(/g)].map((m) => m[1]),
+	]);
+	for (const block of clientSource.matchAll(/const\s*\{([^}]*)\}\s*=\s*(?:react|primitives);/g)) {
+		for (const name of block[1].split(",")) {
+			const clean = name.trim().split(":")[0].trim();
+			if (clean) defined.add(clean);
+		}
+	}
+	const used = new Set([...clientSource.matchAll(/h\(([A-Z]\w*)[,)\s]/g)].map((m) => m[1]));
+	const missing = [...used].filter((name) => !defined.has(name));
+	assert.deepEqual(missing, [], `rendered but never defined: ${missing.join(", ")}`);
+});
+
 test("the remote-environment page uses the host-provided URL verbatim", () => {
 	// The host returns an absolute URL on purpose (custom-scheme shells make a
 	// relative frame URL resolve to `ws://app/...`); the page must not rebuild it.
