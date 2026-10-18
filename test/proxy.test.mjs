@@ -142,6 +142,39 @@ test("streams bodies chunk by chunk (no buffering)", async () => {
 	}
 });
 
+test("rewrites Origin/Referer to the upstream authority (the remote's CSRF fence demands it)", async () => {
+	const seen = {};
+	const upstream = createServer((req, res) => {
+		seen.origin = req.headers.origin;
+		seen.referer = req.headers.referer;
+		res.writeHead(200, { "content-type": "text/plain" });
+		res.end("ok");
+	});
+	const upstreamPort = await listen(upstream);
+	const web = fakeWebServer();
+	const mount = mountEnvironmentProxy(web, "cn", () => ({
+		endpoint: `http://127.0.0.1:${upstreamPort}`,
+		cookieName: "dsh-auth-remote",
+		cookie: "secret",
+		ensureCookie: async () => true,
+	}));
+	const webPort = await listen(web.server);
+	try {
+		const answer = await get(`http://127.0.0.1:${webPort}${mount.prefix}/api/session/list`, {
+			origin: `http://127.0.0.1:${webPort}`,
+			referer: `http://127.0.0.1:${webPort}/dsh-control/env/cn/t/`,
+		});
+		assert.equal(answer.status, 200);
+		// The remote only accepts requests whose Origin matches its own Host; after
+		// the tunnel rewrite that must be the upstream authority, never the browser's.
+		assert.equal(seen.origin, `http://127.0.0.1:${upstreamPort}`);
+		assert.equal(seen.referer, `http://127.0.0.1:${upstreamPort}/`);
+	} finally {
+		await close(web.server);
+		await close(upstream);
+	}
+});
+
 test("passes WebSocket upgrades through with the remote cookie", async () => {
 	const seen = {};
 	let upstreamSocket;
