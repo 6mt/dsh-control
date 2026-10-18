@@ -56,5 +56,8 @@
   "homepage": "https://github.com/6mt/dsh-control#readme",
   "bugs": {
     "url": "https://github.com/6mt/dsh-control/issues"
+  },
+  "scripts": {
+    "test": "node scripts/run-tests.mjs"
   }
 }
