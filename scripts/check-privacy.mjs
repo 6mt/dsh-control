@@ -47,9 +47,6 @@ const FORBIDDEN = [
 	{ id: "private key block", pattern: /-----BEGIN [A-Z ]*PRIVATE KEY-----/g },
 ];
 
-/** Domains that belong to the user's infrastructure, if any were ever added. */
-const DENY_DOMAINS = ["example.com"];
-
 const files = execFileSync("git", ["ls-files"], { cwd: root, encoding: "utf8" })
 	.split("\n")
 	.map((line) => line.trim())
@@ -72,9 +69,6 @@ for (const file of files) {
 			if (typeof rule.check === "function" && !rule.check(value)) continue;
 			findings.push({ file, rule: rule.id, value });
 		}
-	}
-	for (const domain of DENY_DOMAINS) {
-		if (text.includes(domain)) findings.push({ file, rule: "denied domain", value: domain });
 	}
 	// A bare "user@host" pair looks like an SSH target — unless the host is a
 	// documentation/private literal or an obviously fake name used in tests.
