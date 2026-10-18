@@ -101,12 +101,40 @@ test("instrumented HTML carries a slash-terminated streamBaseUrl and a valid dia
 		assert.match(answer.body, /__DSH_TRANSPORT__/, "transport injection present");
 		// The injected base must end with "/" — otherwise `new URL("api/remote.mux", base)`
 		// drops the last segment (the ticket) and the mux path stops matching.
-		const match = answer.body.match(/streamBaseUrl="([^"]*)"/);
+		const match = answer.body.match(/var BASE="([^"]*)"/);
 		assert.ok(match !== null, "streamBaseUrl injected");
 		assert.ok(match[1].endsWith("/"), `streamBaseUrl must end with "/" (got ${match[1]})`);
 		assert.ok(match[1].includes(mount.prefix), "streamBaseUrl carries the ticket prefix");
 		// Diagnostic sink path must include the separator (a missing slash 405'd).
 		assert.match(answer.body, new RegExp(`${mount.prefix}/__diag`), "diag path has the separator");
+	} finally {
+		await close(web.server);
+		await close(upstream);
+	}
+});
+
+test("injected streamBaseUrl uses the host-supplied authority, not the request Host", async () => {
+	// In the desktop app the frame is served through the shell's custom scheme;
+	// its requests reach us with a rewritten Host ("app"), which is NOT a real
+	// authority. The socket base must therefore come from what the host knows.
+	const upstream = createServer((req, res) => {
+		res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+		res.end("<html><head></head><body>x</body></html>");
+	});
+	const upstreamPort = await listen(upstream);
+	const web = fakeWebServer();
+	const mount = mountEnvironmentProxy(web, "cn", () => ({
+		endpoint: `http://127.0.0.1:${upstreamPort}`, cookieName: "c", cookie: "v",
+		ensureCookie: async () => true,
+	}), { authority: "127.0.0.1:65000" });
+	const webPort = await listen(web.server);
+	try {
+		const answer = await get(`http://127.0.0.1:${webPort}${mount.prefix}/`, { host: "app" });
+		const match = answer.body.match(/var BASE="([^"]*)"/);
+		assert.ok(match !== null, "base injected");
+		assert.equal(match[1], `http://127.0.0.1:65000${mount.prefix}/`);
+		// The shell may assign __DSH_TRANSPORT__ later; our base must survive it.
+		assert.match(answer.body, /defineProperty\(globalThis,"__DSH_TRANSPORT__"/, "transport assignment is guarded");
 	} finally {
 		await close(web.server);
 		await close(upstream);
