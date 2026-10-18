@@ -75,8 +75,16 @@ test("asks upstream for identity encoding (instrumentation needs text)", async (
 	}));
 	const webPort = await listen(web.server);
 	try {
-		await get(`http://127.0.0.1:${webPort}${mount.prefix}/`, { "accept-encoding": "gzip, br" });
+		// A document navigation asks for identity (the HTML gets instrumented)…
+		await get(`http://127.0.0.1:${webPort}${mount.prefix}/`, {
+			"accept-encoding": "gzip, br", accept: "text/html,application/xhtml+xml",
+		});
 		assert.equal(seen.acceptEncoding, "identity");
+		// …while a module/asset fetch keeps the browser's compression offer.
+		await get(`http://127.0.0.1:${webPort}${mount.prefix}/assets/index.js`, {
+			"accept-encoding": "gzip, br", accept: "*/*",
+		});
+		assert.equal(seen.acceptEncoding, "gzip, br");
 	} finally {
 		await close(web.server);
 		await close(upstream);

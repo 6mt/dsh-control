@@ -58,6 +58,15 @@ test("the remote-environment page uses the host-provided URL verbatim", () => {
 	assert.match(clientSource, /src:\s*frameUrl/, "iframe src is that URL");
 });
 
+test("the remote-environment iframe lives in a persistent overlay (panel switches must not reload it)", () => {
+	// Switching to a local session unmounts the main-slot page. The iframe must
+	// live in the root overlay instead, or every switch reloads the remote GUI.
+	assert.match(clientSource, /slots\.inject\("shell\.overlay"/, "host registered in the root overlay");
+	assert.match(clientSource, /remoteEnvHost\.set\(\{ active: false \}\)/, "controller deactivates on unmount");
+	assert.match(clientSource, /h\("iframe", \{ ref: frameRef, src: frameUrl/, "iframe owned by the overlay host");
+	assert.doesNotMatch(clientSource, /function RemoteEnvPage[\s\S]{0,4000}h\("iframe"/, "the main-slot controller must not own the iframe");
+});
+
 test("proxy mounts are disposed on environment removal and plugin unload", () => {
 	assert.match(hostSource, /proxyMounts\.delete\(name\)/, "removal disposes the mount");
 	assert.match(hostSource, /for \(const \{ dispose \} of this\.proxyMounts\.values\(\)\)/, "unload disposes every mount");
