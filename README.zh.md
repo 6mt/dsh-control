@@ -25,14 +25,19 @@ dsh plugin --profile <你正在用的profile> add github:6mt/dsh-control
 <details>
 <summary>GitHub 慢或连不上？用 Release 里的 tarball 安装</summary>
 
-下载 [dsh-control-0.1.1.tgz](https://github.com/6mt/dsh-control/releases/download/v0.1.1/dsh-control-0.1.1.tgz)，然后：
+下载 [dsh-control-0.2.0.tgz](https://github.com/6mt/dsh-control/releases/download/v0.2.0/dsh-control-0.2.0.tgz)，然后：
 
 ```sh
-dsh plugin --profile <你正在用的profile> add ./dsh-control-0.1.1.tgz
+dsh plugin --profile <你正在用的profile> add ./dsh-control-0.2.0.tgz
 ```
 </details>
 
-安装后**完全退出并重开 dsh**（⌘Q），右侧边栏出现「远程 dsh 环境」面板。
+安装后**完全退出并重开 dsh**（⌘Q，不是只关窗口），然后：
+
+- 右侧边栏 →「远程 dsh 环境」→ 填 `user@host` → 连接
+- 左侧栏 →「🌐 远程环境」→ 点环境标签，进入远端完整界面
+
+> 升级到新版本后同样需要 ⌘Q 重开（宿主半代码在进程启动时加载）。
 
 > npm 包（`dsh-control`）已备好，日后可发布；当前安装路径就是上面这条 GitHub 命令。
 
@@ -42,7 +47,7 @@ dsh plugin --profile <你正在用的profile> add ./dsh-control-0.1.1.tgz
   锁文件里**锁定到该 commit**——之后不会悄悄跟随后续提交
 - **升级**：`dsh plugin --profile <你正在用的profile> update dsh-control`
   *（pnpm 会重新解析 git 引用并拉取新代码，已实测）*
-- **固定版本**：`github:6mt/dsh-control#v0.1.0`（按 tag）或 `github:6mt/dsh-control#<commit>`
+- **固定版本**：`github:6mt/dsh-control#v0.2.0`（按 tag）或 `github:6mt/dsh-control#<commit>`
 - 变更记录见 [CHANGELOG.md](CHANGELOG.md)
 
 ## 它和 dsh-remote / dsh-remote-ssh 有什么不同？
@@ -71,6 +76,21 @@ dsh plugin --profile <你正在用的profile> add ./dsh-control-0.1.1.tgz
 - **远端配对**：远端会话自动命名「控制端·本地标题」，两边对得上
 - **可见且自愈**：侧栏会话行带远端标识；断线如实显示，一键重连修复
 
+### 场景二：整个远端界面搬进来
+
+左侧栏顶部的「🌐 远程环境」把远端的**完整 dsh 界面**（工作区、会话、对话、设置）
+原样呈现在本地一个页面里，顶部用标签切换不同环境：
+
+![远程环境页面](https://raw.githubusercontent.com/6mt/dsh-control/main/docs/remote-env.png)
+
+*真实运行截图（这台是远端机器）。① 顶部环境标签：一个标签一台机器，点哪台进哪台；② 远端机器自己的工作区与会话列表；③ 远端真实在跑的会话——子代理、代码块、模型用量都在页面里；④ 需要独立窗口时「在新窗口打开」。*
+
+- **100% 真实界面**：不是重画的简版——远端 dsh 自己渲染，版本更新自动跟随
+- **同源代理**：页面由本地 web 服务转发，远端凭据在服务端注入；浏览器不接触令牌，
+  远端外面的反向代理/鉴权层也不影响（流量走加密通道直连远端 loopback）
+- **切换不重连**：去处理别的本地会话再回来，远端界面保持原样、不重新加载
+- **资源走压缩**：只有文档请求关压缩（要注入），静态资源保留 gzip
+
 ## 安全
 
 **插件在你机器上做什么**：一份状态文件（`$DSH_HOME/dsh-control/state.json`，0600，
@@ -80,8 +100,10 @@ dsh plugin --profile <你正在用的profile> add ./dsh-control-0.1.1.tgz
 
 ## 已知限制
 
-- 远端需已装 dsh 并运行 web 实例（未装请用远程工作区类插件）
-- 接入走 SSH（需免密或已配密钥；直连免 SSH 模式在路线图上）
+- 远端需已装 dsh（≥ 0.2.0-rc.2）并运行 web 实例（未装请用远程工作区类插件）
+- 接入走 SSH（需免密或已配密钥；免 SSH 的「直接地址」模式已实现但暂未开放入口）
+- 远端环境的页面是**远端的界面**：在那里的操作会真实作用于远端机器（与浏览器直访一致）
+- 首次打开页面需要加载远端前端资源（数秒，取决于网络）；之后再切换不再重载
 - 会话行标识与流式观感以各版人工验收为准
 - 取消远端运行中的会话：已实现，标注 experimental
 

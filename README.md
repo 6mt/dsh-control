@@ -29,16 +29,21 @@ modules, no dependencies — the plugin is plain JavaScript and installs as-is.
 <details>
 <summary>GitHub slow or blocked? Install from the release tarball instead</summary>
 
-Download [dsh-control-0.1.1.tgz](https://github.com/6mt/dsh-control/releases/download/v0.1.1/dsh-control-0.1.1.tgz)
+Download [dsh-control-0.2.0.tgz](https://github.com/6mt/dsh-control/releases/download/v0.2.0/dsh-control-0.2.0.tgz)
 and run:
 
 ```sh
-dsh plugin --profile <your profile> add ./dsh-control-0.1.1.tgz
+dsh plugin --profile <your profile> add ./dsh-control-0.2.0.tgz
 ```
 </details>
 
-After installing, **fully quit and reopen dsh** (⌘Q). A「远程 dsh 环境」panel appears
-in the right sidebar.
+After installing, **fully quit and reopen dsh** (⌘Q — closing the window is not enough),
+then:
+
+- Right sidebar →「远程 dsh 环境」→ type `user@host` → connect
+- Left sidebar →「🌐 远程环境」→ pick the environment tab to enter the remote's full UI
+
+> Upgrades need the same ⌘Q: a plugin's host half loads at process start.
 
 > An npm package (`dsh-control`) is prepared and can be published later; the GitHub
 > command above is the current install path.
@@ -49,7 +54,7 @@ in the right sidebar.
   **pins it in your profile's lockfile** — it does not silently follow later commits.
 - **Update**: `dsh plugin --profile <your profile> update dsh-control`
   *(pnpm re-resolves the git ref and pulls the new code)*
-- **Pin a version**: `github:6mt/dsh-control#v0.1.0` (tag) or `github:6mt/dsh-control#<commit>`
+- **Pin a version**: `github:6mt/dsh-control#v0.2.0` (tag) or `github:6mt/dsh-control#<commit>`
 - Changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## How is this different from dsh-remote / dsh-remote-ssh?
@@ -83,6 +88,28 @@ whether the environment already has its workspace.*
 - **Visible & self-healing** — remote sessions are marked in the sidebar; disconnects
   are reported honestly and repaired by one click
 
+### The whole remote UI, brought inside
+
+「🌐 远程环境」in the sidebar renders the remote machine's **complete dsh interface**
+(workspaces, sessions, chat, settings) inside one local page, with a tab per environment:
+
+![The remote environment page](https://raw.githubusercontent.com/6mt/dsh-control/main/docs/remote-env.png)
+
+*A real run on the remote machine. ① the environment tab — one tab per machine;
+② the remote's own workspaces and sessions; ③ a real session running there — subagents,
+code blocks and model usage all inside the page; ④ open it in a standalone window.*
+
+- **The real interface, not a re-implementation** — the remote dsh renders itself, so it
+  tracks whatever version the remote runs
+- **Same-origin proxy** — the page is served by your local web server; the remote's
+  credentials are injected server-side, so the browser never sees a token and any auth
+  shell in front of the remote is irrelevant (traffic reaches the remote's loopback
+  through the encrypted channel)
+- **Switching panels keeps it alive** — go handle a local session and come back; the
+  remote view is still there, no reload, no reconnect
+- **Compression kept for assets** — only the document is uncompressed (it gets
+  instrumented); bundles keep gzip
+
 ## Security
 
 **What it does on your machine**: one state file
@@ -95,9 +122,14 @@ never stored. Details in [SECURITY.md](SECURITY.md).
 
 ## Known limitations
 
-- The remote must already run dsh with its web instance (otherwise use a
+- The remote must already run dsh (≥ 0.2.0-rc.2) with its web instance (otherwise use a
   remote-workspace plugin)
-- Connects over SSH (passwordless or configured key; a direct no-SSH mode is on the roadmap)
+- Connects over SSH (passwordless or configured key; a no-SSH "direct address" mode is
+  implemented but not yet exposed in the UI)
+- The remote-environment page **is** the remote's own UI: actions there really affect the
+  remote machine (exactly as if you opened it in a browser)
+- The first visit loads the remote's front-end assets (a few seconds depending on the
+  network); later visits do not reload
 - Sidebar markers and the streaming feel are verified by eye per release
 - Cancelling a remote turn is implemented but marked experimental
 
