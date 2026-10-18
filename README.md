@@ -57,6 +57,14 @@ then:
 - **Pin a version**: `github:6mt/dsh-control#v0.2.0` (tag) or `github:6mt/dsh-control#<commit>`
 - Changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
+## How is this different from the same-named `dsh-control` skill?
+
+There is another project called `jacjackai/dsh-control` — a **skill** that lets an AI agent
+operate the DSH **on your own machine**. This repository is a **plugin** for a different
+job: **across machines**. It brings the dsh instances you already run on other servers into
+one local window (their sessions appear natively in the sidebar, and the whole remote UI
+can be opened in place). The two can coexist.
+
 ## How is this different from dsh-remote / dsh-remote-ssh?
 
 ![How the two approaches differ](https://raw.githubusercontent.com/6mt/dsh-control/main/docs/compare.svg)

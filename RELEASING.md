@@ -16,20 +16,36 @@
 
 ## 一次发布的完整动作
 
-1. **确认主线健康**：`node --check lib/*.js` 全部通过；`test/*.test.mjs` 全绿
-   （CI 亦会跑；若 CI 因 token 缺 `workflow` 权限未启用，需本地跑）
-2. **改版本号**：`package.json` 的 `version`
-3. **写 CHANGELOG**：把 `[Unreleased]` 的内容整理成新版本小节，并更新底部比较链接
-4. **提交**：`git commit -m "release: vX.Y.Z"`
-5. **打 tag**：`git tag -a vX.Y.Z -m "vX.Y.Z"`
-6. **推**：`git push origin main && git push origin vX.Y.Z`
-7. **建 GitHub Release**：标题 `vX.Y.Z`，正文用 CHANGELOG 该小节内容
-8. **附 tarball**（给 GitHub 慢/连不上的用户）：
+1. **确认主线健康**：`node --check lib/*.js` 全部通过；**全量测试全绿**
+
+   ```sh
+   node scripts/run-tests.mjs          # 必跑：13 个测试文件 + 隐私闸门
+   ```
+
+2. **验证"别人真能装起来"**（发布前必跑）：
+
+   ```sh
+   node scripts/verify-install.mjs --source github   # 全新 DSH_HOME + 全新 profile
+   ```
+
+   它会：新建一个干净 profile（base + web 应用）→ 按 README 的命令安装 →
+   启动 → 调宿主 API，确认 `adapter.registered === true`。
+   `--source tarball --tarball <file>` 可验证 Release 资产；`--source local --local .`
+   用于日常快速回归。
+
+   > 界面渲染无法自动验证，发版前仍需人工开一次窗口确认（见 AGENTS.md 第 1 条）。
+3. **改版本号**：`package.json` 的 `version`
+4. **写 CHANGELOG**：把 `[Unreleased]` 的内容整理成新版本小节，并更新底部比较链接
+5. **提交**：`git commit -m "release: vX.Y.Z"`
+6. **打 tag**：`git tag -a vX.Y.Z -m "vX.Y.Z"`
+7. **推**：`git push origin main && git push origin vX.Y.Z`
+8. **建 GitHub Release**：标题 `vX.Y.Z`，正文用 CHANGELOG 该小节内容
+9. **附 tarball**（给 GitHub 慢/连不上的用户）：
    ```sh
    pnpm pack                     # 生成 dsh-control-X.Y.Z.tgz
    # 上传到该 Release 的资产里
    ```
-9. **（可选）发 npm**：`research2/publish.sh`（需要 NPM_TOKEN）
+10. **（可选）发 npm**：`research2/publish.sh`（需要 NPM_TOKEN）
 
 ## 用户侧：安装与更新语义（务必写进 CHANGELOG）
 

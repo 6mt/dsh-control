@@ -50,6 +50,10 @@ dsh plugin --profile <你正在用的profile> add ./dsh-control-0.2.0.tgz
 - **固定版本**：`github:6mt/dsh-control#v0.2.0`（按 tag）或 `github:6mt/dsh-control#<commit>`
 - 变更记录见 [CHANGELOG.md](CHANGELOG.md)
 
+## 和同名的 `dsh-control`（技能）有什么区别？
+
+GitHub 上还有一个同名的 `jacjackai/dsh-control`，它是一个**技能**：让 AI Agent 去操作**本机** DSH 的工作区与会话。本仓库是**插件**，解决的是另一件事——**跨机器**：把你在其他服务器上装好的 dsh 接进本地这一个窗口，远端会话原生出现在侧栏，还能把整台远端的界面搬进来。两者可以同时装，互不冲突。
+
 ## 它和 dsh-remote / dsh-remote-ssh 有什么不同？
 
 ![两种做法的对比](https://raw.githubusercontent.com/6mt/dsh-control/main/docs/compare.svg)
