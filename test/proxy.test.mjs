@@ -84,6 +84,94 @@ test("forwards under the prefix: path, query, and the remote cookie only", async
 	}
 });
 
+test("does not re-mint the cookie on every request (one round trip is enough)", async () => {
+	// Re-minting per request doubled every asset fetch through the tunnel.
+	const hits = [];
+	const upstream = createServer((req, res) => {
+		hits.push(req.url);
+		res.writeHead(200, { "content-type": "application/javascript" });
+		res.end("export const x = 1;");
+	});
+	const upstreamPort = await listen(upstream);
+	const web = fakeWebServer();
+	let ensureCalls = 0;
+	const client = {
+		endpoint: `http://127.0.0.1:${upstreamPort}`,
+		cookieName: "dsh-auth-1", cookie: "abc",
+		ensureCookie: async () => { ensureCalls += 1; return true; },
+	};
+	const mount = mountEnvironmentProxy(web, "cn", () => client);
+	const webPort = await listen(web.server);
+	try {
+		for (let i = 0; i < 3; i += 1) await get(`http://127.0.0.1:${webPort}${mount.prefix}/assets/a-${i}.js`);
+		assert.ok(ensureCalls <= 1, `at most one refresh for three requests, got ${ensureCalls}`);
+	} finally {
+		await close(web.server);
+		await close(upstream);
+	}
+});
+
+test("hashed assets are served from memory on the second request", async () => {
+	let upstreamHits = 0;
+	const upstream = createServer((req, res) => {
+		upstreamHits += 1;
+		res.writeHead(200, { "content-type": "application/javascript" });
+		res.end("export const big = \"" + "x".repeat(2048) + "\";");
+	});
+	const upstreamPort = await listen(upstream);
+	const web = fakeWebServer();
+	const mount = mountEnvironmentProxy(web, "cn", () => ({
+		endpoint: `http://127.0.0.1:${upstreamPort}`, cookieName: "c", cookie: "v",
+		ensureCookie: async () => true,
+	}));
+	const webPort = await listen(web.server);
+	try {
+		const url = `http://127.0.0.1:${webPort}${mount.prefix}/assets/index-abc.js`;
+		const first = await get(url);
+		const second = await get(url);
+		assert.equal(upstreamHits, 1, "second request must not touch the remote");
+		assert.equal(first.body, second.body);
+		assert.match(second.headers["cache-control"] ?? "", /immutable/);
+	} finally {
+		await close(web.server);
+		await close(upstream);
+	}
+});
+
+test("a 401 from the remote refreshes the cookie once and retries", async () => {
+	let calls = 0;
+	let accepted = "c=stale";
+	const upstream = createServer((req, res) => {
+		calls += 1;
+		if (req.headers.cookie === accepted) {
+			res.writeHead(200, { "content-type": "application/json" });
+			res.end("{\"ok\":true}");
+			return;
+		}
+		res.writeHead(401, { "content-type": "application/json" });
+		res.end("{\"error\":\"auth required\"}");
+	});
+	const upstreamPort = await listen(upstream);
+	const web = fakeWebServer();
+	const client = {
+		endpoint: `http://127.0.0.1:${upstreamPort}`, cookieName: "c", cookie: "stale",
+		ensureCookie: async () => { client.cookie = "fresh"; return true; },
+	};
+	const mount = mountEnvironmentProxy(web, "cn", () => client);
+	const webPort = await listen(web.server);
+	try {
+		await get(`http://127.0.0.1:${webPort}${mount.prefix}/api/session/list`);
+		// The remote rotates its cookie: the next call gets 401, we refresh and retry.
+		accepted = "c=fresh";
+		const answer = await get(`http://127.0.0.1:${webPort}${mount.prefix}/api/session/list`);
+		assert.equal(answer.status, 200, "retried with the refreshed cookie");
+		assert.equal(calls, 3, "one ok, one rejected, one ok after refresh");
+	} finally {
+		await close(web.server);
+		await close(upstream);
+	}
+});
+
 test("strips the remote's Set-Cookie from responses", async () => {
 	const upstream = createServer((req, res) => {
 		res.writeHead(200, { "set-cookie": "dsh-auth-remote=evil; Path=/", "content-type": "text/plain" });

@@ -80,9 +80,14 @@ test("asks upstream for identity encoding (instrumentation needs text)", async (
 			"accept-encoding": "gzip, br", accept: "text/html,application/xhtml+xml",
 		});
 		assert.equal(seen.acceptEncoding, "identity");
-		// …while a module/asset fetch keeps the browser's compression offer.
-		await get(`http://127.0.0.1:${webPort}${mount.prefix}/assets/index.js`, {
+		// …as are hashed assets (they get cached locally, so plain bytes)…
+		await get(`http://127.0.0.1:${webPort}${mount.prefix}/assets/index-abc.js`, {
 			"accept-encoding": "gzip, br", accept: "*/*",
+		});
+		assert.equal(seen.acceptEncoding, "identity", "assets are cached, so no compression");
+		// …while an API call keeps the browser's compression offer.
+		await get(`http://127.0.0.1:${webPort}${mount.prefix}/api/session/list`, {
+			"accept-encoding": "gzip, br", accept: "application/json",
 		});
 		assert.equal(seen.acceptEncoding, "gzip, br");
 	} finally {
