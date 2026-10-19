@@ -58,6 +58,17 @@ test("the remote-environment page uses the host-provided URL verbatim", () => {
 	assert.match(clientSource, /src:\s*frameUrl/, "iframe src is that URL");
 });
 
+test("「打开界面」jumps to the in-app page; the browser window stays a secondary action", () => {
+	// Opening a separate browser window was the old behaviour; now that the
+	// full UI renders in-app, the primary action must select that panel.
+	assert.match(clientSource, /const openInApp = \(environment\) => \{/, "in-app jump exists");
+	assert.match(clientSource, /selectPanel\(REMOTE_ENV_PANEL\)/, "selects our main panel");
+	assert.match(clientSource, /const openInBrowser = useCallback/, "browser action kept as secondary");
+	assert.match(clientSource, /onClick: \(\) => openInterface\(environment\.name\)/, "primary button uses the in-app jump");
+	assert.match(clientSource, /onClick: \(\) => openInBrowser\(environment\.name\)/, "secondary button opens the browser");
+	assert.doesNotMatch(clientSource, /onClick: \(\) => openInterface[\s\S]{0,200}window\.open/, "the primary button must not open a window");
+});
+
 test("the remote-environment iframe lives in a persistent overlay (panel switches must not reload it)", () => {
 	// Switching to a local session unmounts the main-slot page. The iframe must
 	// live in the root overlay instead, or every switch reloads the remote GUI.
