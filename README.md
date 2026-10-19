@@ -48,6 +48,15 @@ then:
 > An npm package (`dsh-control`) is prepared and can be published later; the GitHub
 > command above is the current install path.
 
+## Install failed?
+
+- **Retry once** — the install pulls the repo from GitHub and resolves peers from npm;
+  on a bad network pnpm can time out.
+- **Seeing `allowBuilds` / "prepare script"** — that is dsh's generic hint for *any*
+  failed git-hosted install. This plugin has no build scripts (its only script is
+  `test`), so nothing needs approving; just retry.
+- Still stuck? Use the release tarball instead (above).
+
 ## Versions & updating
 
 - **What you get**: `github:6mt/dsh-control` installs the newest commit of `main` and

@@ -41,6 +41,12 @@ dsh plugin --profile <你正在用的profile> add ./dsh-control-0.2.0.tgz
 
 > npm 包（`dsh-control`）已备好，日后可发布；当前安装路径就是上面这条 GitHub 命令。
 
+## 装失败了？
+
+- **第一次 `add` 失败，重跑一次就好**：安装要从 GitHub 拉包并从 npm 解析依赖，网络差时 pnpm 会超时。
+- **看到 `allowBuilds` / “prepare script” 提示**：那是 dsh 对**所有** git 安装失败的通用提示。本插件没有任何构建脚本（`package.json` 里只有 `test`），不需要授权；按上一条重跑即可。
+- 仍然不行就用 Release 里的 tarball 安装（见上）。
+
 ## 版本与更新
 
 - **装上的是哪一版**：`github:6mt/dsh-control` 取 `main` 的**最新提交**，并在你的 profile
