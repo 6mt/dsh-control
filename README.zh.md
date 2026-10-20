@@ -51,8 +51,13 @@ dsh plugin --profile <你正在用的profile> add ./dsh-control-0.2.1.tgz
 
 - **装上的是哪一版**：`github:6mt/dsh-control` 取 `main` 的**最新提交**，并在你的 profile
   锁文件里**锁定到该 commit**——之后不会悄悄跟随后续提交
-- **升级**：`dsh plugin --profile <你正在用的profile> update dsh-control`
-  *（pnpm 会重新解析 git 引用并拉取新代码，已实测）*
+- **升级**：`dsh plugin --profile <你正在用的profile> update dsh-control`，然后 ⌘Q 重启
+- **如果上面那条显示「Already up to date」且版本没变**（说明当初是用 `#vX.Y.Z` 固定装的）：
+  重新装一次不带 ref 的形式，已实测会升到最新：
+
+  ```sh
+  dsh plugin --profile <你正在用的profile> add github:6mt/dsh-control
+  ```
 - **固定版本**：`github:6mt/dsh-control#v0.2.1`（按 tag）或 `github:6mt/dsh-control#<commit>`
 - 变更记录见 [CHANGELOG.md](CHANGELOG.md)
 

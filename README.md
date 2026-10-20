@@ -61,8 +61,13 @@ then:
 
 - **What you get**: `github:6mt/dsh-control` installs the newest commit of `main` and
   **pins it in your profile's lockfile** — it does not silently follow later commits.
-- **Update**: `dsh plugin --profile <your profile> update dsh-control`
-  *(pnpm re-resolves the git ref and pulls the new code)*
+- **Update**: `dsh plugin --profile <your profile> update dsh-control`, then ⌘Q
+- **If it says "Already up to date" and the version does not move** (you installed a
+  pinned `#vX.Y.Z` earlier), re-add the un-pinned form — verified to pull the latest:
+
+  ```sh
+  dsh plugin --profile <your profile> add github:6mt/dsh-control
+  ```
 - **Pin a version**: `github:6mt/dsh-control#v0.2.1` (tag) or `github:6mt/dsh-control#<commit>`
 - Changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
