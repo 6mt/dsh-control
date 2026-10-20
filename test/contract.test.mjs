@@ -83,8 +83,13 @@ test("proxy mounts are disposed on environment removal and plugin unload", () =>
 	assert.match(hostSource, /for \(const \{ dispose \} of this\.proxyMounts\.values\(\)\)/, "unload disposes every mount");
 });
 
-test("the tunnel keeper re-verifies adopted listeners", () => {
+test("the tunnel keeper verifies the port on every ensure (no blind trust)", () => {
+	// Trusting a live child process is how a half-dead ssh went unnoticed: the
+	// process lived, its -L listener did not, and every request hit ECONNREFUSED
+	// until the user pressed 重连. ensure() must probe reality every time; the
+	// supervisor only exists as a slow backstop.
 	const tunnelSource = readFileSync(join(here, "..", "lib", "tunnel.js"), "utf8");
-	assert.match(tunnelSource, /existing\.adopted !== true\) return \{ ok: true \}/, "spawned tunnels are trusted");
-	assert.match(tunnelSource, /waitForPort\(spec\.localPort, 300\)/, "adopted listeners are probed");
+	assert.match(tunnelSource, /Never trust bookkeeping/, "the rule is documented where it matters");
+	assert.match(tunnelSource, /if \(await waitForPort\(spec\.localPort, 300\)\) return \{ ok: true \};/, "every ensure probes the port");
+	assert.doesNotMatch(tunnelSource, /existing\.adopted !== true\) return \{ ok: true \}/, "spawned tunnels are no longer trusted blindly");
 });

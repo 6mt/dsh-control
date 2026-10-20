@@ -103,3 +103,43 @@ test("a half-dead tunnel (listener gone, process alive) is rebuilt by the superv
 	assert.ok(spawned.length >= 1, `supervisor respawned (spawned=${spawned.length}, events=${events.join(",")})`);
 	assert.ok(events.some((e) => e === "tunnel-dead"), "dead listener reported");
 });
+
+test("a tunnel this process spawned is still verified on every ensure()", async () => {
+	// Regression: ensure() used to trust a live child process. An ssh whose -L
+	// listener vanished (sleep/wake, remote restart) stayed "alive", so every
+	// request hit ECONNREFUSED until the user pressed 重连. ensure() must probe.
+	let spawns = 0;
+	const servers = [];
+	const children = [];
+	const spawnTunnel = (spec) => {
+		spawns += 1;
+		const server = createServer(() => {});
+		server.listen(spec.localPort, "127.0.0.1");
+		servers.push(server);
+		const child = {
+			kill() { server.close(); },
+			stderr: { on() {} },
+			on() {},
+		};
+		children.push(child);
+		return child;
+	};
+	const manager = new TunnelManager({ spawnTunnel });
+	const probe = createServer(() => {});
+	await new Promise((r) => probe.listen(0, "127.0.0.1", r));
+	const port = probe.address().port;
+	await new Promise((r) => probe.close(r));
+	const spec = { name: "box", target: "user@host", localPort: port, remotePort: 1 };
+
+	const first = await manager.ensure(spec);
+	assert.equal(first.ok, true, "first ensure spawns");
+	assert.equal(spawns, 1);
+	// The spawned child is "alive" but nothing listens any more.
+	const dead = children.pop();
+	dead?.kill();
+	await new Promise((r) => setTimeout(r, 50));
+	const second = await manager.ensure(spec);
+	manager.disposeAll();
+	assert.equal(second.ok, true, "second ensure heals instead of trusting the child");
+	assert.ok(spawns >= 2, `respawned (spawns=${spawns})`);
+});
