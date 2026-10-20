@@ -154,6 +154,35 @@ test("injected streamBaseUrl uses the host-supplied authority, not the request H
 	}
 });
 
+test("the frame gets its own storage namespace (it is same-origin with the shell)", async () => {
+	// Same-origin is required for the stream WebSocket, but it means the frame
+	// shares localStorage with the local app. Without a namespace the remote UI
+	// reads the local "current session" id and asks the remote for a session it
+	// does not have ("session … not found").
+	const upstream = createServer((req, res) => {
+		res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+		res.end("<html><head></head><body>x</body></html>");
+	});
+	const upstreamPort = await listen(upstream);
+	const web = fakeWebServer();
+	const mount = mountEnvironmentProxy(web, "cn", () => ({
+		endpoint: `http://127.0.0.1:${upstreamPort}`, cookieName: "c", cookie: "v",
+		ensureCookie: async () => true,
+	}), { authority: "127.0.0.1:65000" });
+	const webPort = await listen(web.server);
+	try {
+		const answer = await get(`http://127.0.0.1:${webPort}${mount.prefix}/`);
+		// A unique prefix per mount keeps two environments apart.
+		const ticket = mount.prefix.split("/").pop();
+		assert.match(answer.body, new RegExp(`dshctl:${ticket}:`), "storage prefix carries the mount ticket");
+		assert.match(answer.body, /Object\.defineProperty\(window,name/, "localStorage/sessionStorage are wrapped");
+		assert.match(answer.body, /Proxy\(store/, "the wrapper is a Proxy over the real Storage");
+	} finally {
+		await close(web.server);
+		await close(upstream);
+	}
+});
+
 test("the diagnostic sink answers locally and is never forwarded upstream", async () => {
 	let upstreamHits = 0;
 	const upstream = createServer((req, res) => {
