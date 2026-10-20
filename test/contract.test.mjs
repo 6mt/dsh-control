@@ -83,6 +83,16 @@ test("proxy mounts are disposed on environment removal and plugin unload", () =>
 	assert.match(hostSource, /for \(const \{ dispose \} of this\.proxyMounts\.values\(\)\)/, "unload disposes every mount");
 });
 
+test("the remote-env overlay stays rendered when inactive and warms on visibility", () => {
+	// display:none turns the frame into a hidden document; the browser throttles
+	// its timers and the remote UI came back "reconnecting". Off-screen keeps it
+	// alive. Returning to the window must also re-warm the tunnels immediately.
+	assert.doesNotMatch(clientSource, /display: host\.active \? "flex" : "none"/, "inactive overlay must not use display:none");
+	assert.match(clientSource, /visibility: host\.active \? "visible" : "hidden"/, "inactive overlay is hidden but rendered");
+	assert.match(clientSource, /translateX\(-200vw\)/, "inactive overlay is moved off-screen");
+	assert.match(clientSource, /document\.addEventListener\("visibilitychange", warm/, "visibility change warms the tunnels");
+});
+
 test("client timers are visibility-aware and event-driven (no idle polling)", () => {
 	// Two resource rules that are easy to regress in UI code:
 	//  - the 15 s remote-session poll must skip a hidden window;
