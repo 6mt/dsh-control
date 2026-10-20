@@ -13,7 +13,7 @@ import { mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer, request as httpRequest } from "node:http";
-import { mountEnvironmentProxy } from "../lib/proxy.js";
+import { createMuxScanner, mountEnvironmentProxy } from "../lib/proxy.js";
 
 /** A local web-server stand-in: prefix routes + one upgrade route. */
 function fakeWebServer() {
@@ -290,6 +290,62 @@ test("a refused upstream triggers the tunnel recovery hook (throttled)", async (
 		await close(web.server);
 	}
 });
+
+test("aborting the browser side drops the upstream connection (no leaked SSE)", async () => {
+	// Every reloaded frame opens a long-lived SSE; if the browser side closing
+	// left the upstream open, reloads would accumulate connections against the
+	// remote. The proxy must propagate the close immediately.
+	let upstreamClosed = false;
+	const upstream = createServer((req, res) => {
+		res.writeHead(200, { "content-type": "text/event-stream" });
+		res.write("data: hello\n\n");
+		req.on("close", () => { upstreamClosed = true; });
+		res.on("close", () => { upstreamClosed = true; });
+	});
+	const upstreamPort = await listen(upstream);
+	const web = fakeWebServer();
+	const mount = mountEnvironmentProxy(web, "cn", () => ({
+		endpoint: `http://127.0.0.1:${upstreamPort}`, cookieName: "c", cookie: "v",
+		ensureCookie: async () => true,
+	}));
+	const webPort = await listen(web.server);
+	try {
+		await new Promise((resolve, reject) => {
+			const req = httpRequest({ host: "127.0.0.1", port: webPort, path: `${mount.prefix}/plugins/events`, agent: false }, (res) => {
+				res.once("data", () => { req.destroy(); resolve(); });
+			});
+			req.on("error", () => resolve());
+			req.end();
+		});
+		await new Promise((r) => setTimeout(r, 300));
+		assert.equal(upstreamClosed, true, "upstream connection was destroyed");
+	} finally {
+		await close(web.server);
+		await close(upstream);
+	}
+});
+
+test("the mux scanner is bounded: it stops at the byte cap (deterministic)", () => {
+	// Unit-level: prove the bound without TCP timing. Real mux frames are
+	// WebSocket-framed, so the JSON parser rejects them and only the byte cap can
+	// stop the scan — exactly the case a live stream hits.
+	const lines = [];
+	const scanner = createMuxScanner("→", (line) => lines.push(line), { maxBytes: 64 * 1024, maxLines: 1000 });
+	const frame = (tag) => Buffer.from(JSON.stringify({ type: "item", value: { error: `session "${tag}" not found` } }) + "\n");
+
+	scanner(frame("early"));
+	// > cap of unparsable bytes (binary WS framing looks like this to us).
+	for (let sent = 0; sent < 160 * 1024; sent += 8 * 1024) scanner(Buffer.alloc(8 * 1024, 0x00));
+	scanner(frame("late"));
+
+	assert.equal(lines.length, 1, `only the pre-cap frame is logged (got ${lines.length})`);
+	assert.match(lines[0], /early/);
+	assert.doesNotMatch(lines.join("\n"), /late/);
+});
+
+
+
+
 
 test("mux frames are mirrored into the log: opens and error frames name themselves", async () => {
 	// A field repro of "session not found" must be diagnosable from the host
