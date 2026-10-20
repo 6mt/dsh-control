@@ -201,7 +201,9 @@ test("same-origin absolute requests are rewritten through the mount prefix", asy
 	try {
 		const answer = await get(`http://127.0.0.1:${webPort}${mount.prefix}/`);
 		assert.match(answer.body, /function toProxy\(input\)/, "rewriter present");
-		assert.match(answer.body, /window\.fetch=function\(input,init\)/, "fetch is wrapped");
+		assert.match(answer.body, /var wf=function\(input,init\)/, "fetch is wrapped");
+		assert.match(answer.body, /defineProperty\(window,"fetch"/, "defineProperty is tried first");
+		assert.match(answer.body, /patches:JSON\.stringify\(PATCH\)/, "patch status is reported");
 		assert.match(answer.body, /XMLHttpRequest\.prototype\.open=function\(method,url\)/, "XHR is wrapped");
 		assert.match(answer.body, /window\.EventSource=ES/, "EventSource is wrapped");
 		assert.match(answer.body, /window\.WebSocket=WS/, "WebSocket is wrapped");

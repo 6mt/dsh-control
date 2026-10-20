@@ -189,6 +189,45 @@ test("the frame's storage is namespaced per environment and clear() stays inside
 	}
 });
 
+test("a frozen fetch accessor is reported, not silently assumed patched", async () => {
+	// If the desktop preload exposes fetch as a getter-only accessor, neither
+	// defineProperty nor assignment can replace it. The shim must say so in its
+	// startup diagnostic instead of pretending the rewrite is active.
+	const served = await serveInstrumented();
+	try {
+		const realm = {
+			URL,
+			console: { error() {} },
+			setTimeout() {},
+			location: { origin: `http://${served.host}`, host: served.host, href: served.base },
+			document: { baseURI: served.base },
+			localStorage: new FakeStorage(),
+			sessionStorage: new FakeStorage(),
+			Request: class { constructor(url) { this.url = url; } },
+			XMLHttpRequest: class { open(method, url) { this.opened = String(url); } },
+			EventSource: FakeEventSource,
+			WebSocket: FakeWebSocket,
+			navigator: {},
+		};
+		const native = () => Promise.resolve({});
+		Object.defineProperty(realm, "fetch", { get() { return native; }, configurable: false });
+		const diag = [];
+		realm.globalThis = realm;
+		realm.window = realm;
+		vm.runInNewContext(served.script, realm, { filename: "injected.js" });
+
+		assert.equal(realm.fetch, native, "native fetch untouched when frozen");
+		const reportCall = diag.length; // (frozen fetch cannot report, diag stays empty)
+		assert.equal(reportCall, 0, "diagnostics could not post — as expected");
+		// XHR lives on the prototype and stays patchable.
+		const xhr = new realm.XMLHttpRequest();
+		xhr.open("GET", "/sidebar/api/fs.trees");
+		assert.equal(xhr.opened, `${served.base}sidebar/api/fs.trees`, "XHR still rewrites when fetch is frozen");
+	} finally {
+		await served.cleanup();
+	}
+});
+
 test("a later assignment to __DSH_TRANSPORT__ keeps our streamBaseUrl", async () => {
 	const served = await serveInstrumented();
 	try {
