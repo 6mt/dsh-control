@@ -75,9 +75,13 @@ function runShim(script, { base, host }) {
 	const diag = [];
 	const wsSockets = [];
 	const posts = [];
+	const errors = [];
 	const realm = {
 		URL,
-		console: { error() {} },
+		// The injected script swallows its own internal errors via a catch-all
+		// that logs here. Silencing this is how the PATCH scoping regression
+		// shipped green: the ReferenceError was invisible to every test.
+		console: { error(...args) { errors.push(args.map(String).join(" ")); } },
 		setTimeout() {},
 		location: { origin: `http://${host}`, host, href: base },
 		document: { baseURI: base },
@@ -96,7 +100,9 @@ function runShim(script, { base, host }) {
 	let error = null;
 	try { vm.runInNewContext(script, realm, { filename: "injected.js" }); }
 	catch (e) { error = e; }
-	return { realm, diag, posts, wsSockets, stores, error };
+	// Any swallowed internal error fails whichever test is running.
+	assert.deepEqual(errors, [], "the injected script swallowed an internal error");
+	return { realm, diag, posts, wsSockets, stores, error, errors };
 }
 
 test("WebSocket wrapper keeps statics, instanceof and listener wiring", async () => {
@@ -233,10 +239,13 @@ test("a frozen fetch accessor is reported, not silently assumed patched", async 
 		Object.defineProperty(realm, "fetch", { get() { return native; }, configurable: false });
 		const diag = [];
 		const posts = [];
+		const errors = [];
+		realm.console = { error(...args) { errors.push(args.map(String).join(" ")); } };
 		realm.globalThis = realm;
 		realm.window = realm;
 		vm.runInNewContext(served.script, realm, { filename: "injected.js" });
 
+		assert.deepEqual(errors, [], "no swallowed internal errors in the frozen realm either");
 		assert.equal(realm.fetch, native, "native fetch untouched when frozen");
 		// The diag reporter itself calls the (frozen) fetch — our stub — so the
 		// startup report still lands and must confess that fetch stayed native.
