@@ -266,6 +266,31 @@ test("rewrites Origin/Referer to the upstream authority (the remote's CSRF fence
 	}
 });
 
+test("a refused upstream triggers the tunnel recovery hook (throttled)", async () => {
+	// ECONNREFUSED means the tunnel died behind us; the proxy must ask the host
+	// to rebuild it instead of letting the page retry a dead port for minutes.
+	const web = fakeWebServer();
+	let recovers = 0;
+	// Nothing listens on this port: every request is refused.
+	const dead = createServer();
+	const deadPort = await listen(dead);
+	await close(dead);
+	const mount = mountEnvironmentProxy(web, "cn", () => ({
+		endpoint: `http://127.0.0.1:${deadPort}`, cookieName: "c", cookie: "v",
+		ensureCookie: async () => true,
+	}), { recover: () => { recovers += 1; } });
+	const webPort = await listen(web.server);
+	try {
+		const first = await get(`http://127.0.0.1:${webPort}${mount.prefix}/api/a`);
+		const second = await get(`http://127.0.0.1:${webPort}${mount.prefix}/api/b`);
+		assert.equal(first.status, 502, "dead tunnel surfaces as 502");
+		assert.equal(second.status, 502);
+		assert.equal(recovers, 1, "recovery is requested once inside the throttle window");
+	} finally {
+		await close(web.server);
+	}
+});
+
 test("mux frames are mirrored into the log: opens and error frames name themselves", async () => {
 	// A field repro of "session not found" must be diagnosable from the host
 	// log alone: the endpoint and sessionId of every open, plus any frame that

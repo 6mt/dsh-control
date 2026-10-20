@@ -59,3 +59,47 @@ test("an adopted listener that keeps serving is not respawned", async () => {
 	assert.equal(spawns, 0, "a live adopted listener must not be replaced");
 	await close(server);
 });
+
+test("a half-dead tunnel (listener gone, process alive) is rebuilt by the supervisor", async () => {
+	// Field failure: ssh stayed alive but its -L listener vanished; the child's
+	// close handler never fired, so nothing rebuilt the port and the page
+	// retried a refused port for minutes. The supervisor must notice and respawn.
+	const spawned = [];
+	const servers = [];
+	const spawnTunnel = (spec) => {
+		const server = createServer(() => {});
+		servers.push(server);
+		spawned.push(spec.name);
+		return {
+			kill() {
+				const index = servers.indexOf(server);
+				if (index >= 0) servers.splice(index, 1);
+				server.close();
+			},
+			stderr: { on() {} },
+			on() {},
+		};
+	};
+	const events = [];
+	const manager = new TunnelManager({ spawnTunnel, onEvent: (e) => events.push(e.event), watchMs: 40 });
+	const spec = { name: "box", target: "user@host", localPort: 0, remotePort: 1 };
+	// Bind a concrete port ourselves, then hand it to the manager as adopted.
+	const bootstrap = createServer(() => {});
+	await new Promise((r) => bootstrap.listen(0, "127.0.0.1", r));
+	const port = bootstrap.address().port;
+	await new Promise((r) => bootstrap.close(r));
+	const realSpec = { ...spec, localPort: port };
+
+	// Simulate "ssh alive but listener gone": adopt a live server, then kill it.
+	const live = createServer(() => {});
+	await new Promise((r) => live.listen(port, "127.0.0.1", r));
+	await manager.ensure(realSpec); // adopts the listener
+	await new Promise((r) => live.close(r)); // listener dies silently
+
+	// The supervisor should notice within a few watch ticks and respawn.
+	const deadline = Date.now() + 3_000;
+	while (Date.now() < deadline && spawned.length === 0) await new Promise((r) => setTimeout(r, 40));
+	manager.disposeAll();
+	assert.ok(spawned.length >= 1, `supervisor respawned (spawned=${spawned.length}, events=${events.join(",")})`);
+	assert.ok(events.some((e) => e === "tunnel-dead"), "dead listener reported");
+});
