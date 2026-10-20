@@ -9,6 +9,9 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
 import { createServer, request as httpRequest } from "node:http";
 import { mountEnvironmentProxy } from "../lib/proxy.js";
 
@@ -262,6 +265,59 @@ test("rewrites Origin/Referer to the upstream authority (the remote's CSRF fence
 		await close(upstream);
 	}
 });
+
+test("mux frames are mirrored into the log: opens and error frames name themselves", async () => {
+	// A field repro of "session not found" must be diagnosable from the host
+	// log alone: the endpoint and sessionId of every open, plus any frame that
+	// carries an application error, are logged with a MUX prefix.
+	const upstream = createServer();
+	let upstreamSocket;
+	upstream.on("upgrade", (req, socket) => {
+		upstreamSocket = socket;
+		socket.write("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n");
+		socket.write(JSON.stringify({ type: "item", streamId: "s1", value: { error: 'session "session-x" not found' } }) + "\n");
+	});
+	const upstreamPort = await listen(upstream);
+	const web = fakeWebServer();
+	const mount = mountEnvironmentProxy(web, "cn", () => ({
+		endpoint: `http://127.0.0.1:${upstreamPort}`, cookieName: "c", cookie: "v",
+		ensureCookie: async () => true,
+	}));
+	const webPort = await listen(web.server);
+	// Never read the maintainer's real log: point the proxy at a scratch home.
+	const previousHome = process.env.DSH_HOME;
+	const scratch = mkdtempSync(join(tmpdir(), "dsh-mux-test-"));
+	process.env.DSH_HOME = scratch;
+	const logPath = join(scratch, "dsh-control", "proxy.log");
+	try {
+		await Promise.race([
+			new Promise((resolve, reject) => {
+				const res = httpRequest({
+					host: "127.0.0.1", port: webPort, path: `${mount.prefix}/api/remote.mux`,
+					headers: { connection: "Upgrade", upgrade: "websocket", "sec-websocket-key": "k", "sec-websocket-version": "13" },
+					agent: false,
+				});
+				res.on("upgrade", (response, socket, head) => {
+					socket.resume();
+					socket.on("data", () => { socket.destroy(); resolve(); });
+					setTimeout(() => { socket.destroy(); resolve(); }, 500);
+				});
+				res.on("error", reject);
+				res.end();
+			}),
+			new Promise((_, reject) => { setTimeout(() => reject(new Error("upgrade timed out")), 3_000); }),
+		]);
+		const log = readFileSync(logPath, "utf8");
+		assert.match(log, /MUX ← .*not found/, "the remote error frame is logged");
+	} finally {
+		upstreamSocket?.destroy();
+		await close(web.server);
+		await close(upstream);
+		process.env.DSH_HOME = previousHome;
+		rmSync(scratch, { recursive: true, force: true });
+	}
+});
+
 
 test("passes WebSocket upgrades through with the remote cookie", async () => {
 	const seen = {};
