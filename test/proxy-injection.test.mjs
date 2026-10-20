@@ -271,6 +271,12 @@ test("the injected shim actually rewrites absolute requests (runs in a vm)", asy
 		assert.equal(calls.es[0], `${base}plugins/events`, "EventSource rewritten");
 		const ours = calls.ws.find((url) => url.includes(`:${webPort}/dsh-control/`));
 		assert.equal(ours, `ws://127.0.0.1:${webPort}${mount.prefix}/api/remote.mux`, "WebSocket rewritten");
+
+		// The real mux socket must report its lifecycle, otherwise a "connecting"
+		// UI leaves no trace we can read from the host log.
+		const events = calls.fetch.filter((url) => url.includes("__diag"));
+		assert.ok(events.length > 0, "diagnostics are posted");
+		assert.match(answer.body, /kind:"app-ws"/, "app socket lifecycle is instrumented");
 	} finally {
 		await close(web.server);
 		await close(upstream);
