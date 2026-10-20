@@ -74,6 +74,7 @@ async function serveInstrumented(envName = "cn") {
 function runShim(script, { base, host }) {
 	const diag = [];
 	const wsSockets = [];
+	const posts = [];
 	const realm = {
 		URL,
 		console: { error() {} },
@@ -82,7 +83,7 @@ function runShim(script, { base, host }) {
 		document: { baseURI: base },
 		localStorage: new FakeStorage(),
 		sessionStorage: new FakeStorage(),
-		fetch: (url) => { diag.push(String(url)); return Promise.resolve({}); },
+		fetch: (url, init) => { diag.push(String(url)); posts.push({ url: String(url), body: String(init?.body ?? "") }); return Promise.resolve({}); },
 		Request: class { constructor(url) { this.url = url; } },
 		XMLHttpRequest: class { open(method, url) { diag.push(String(url)); } },
 		EventSource: FakeEventSource,
@@ -92,8 +93,10 @@ function runShim(script, { base, host }) {
 	realm.globalThis = realm;
 	realm.window = realm;
 	const stores = { localStorage: realm.localStorage, sessionStorage: realm.sessionStorage };
-	vm.runInNewContext(script, realm, { filename: "injected.js" });
-	return { realm, diag, wsSockets, stores };
+	let error = null;
+	try { vm.runInNewContext(script, realm, { filename: "injected.js" }); }
+	catch (e) { error = e; }
+	return { realm, diag, posts, wsSockets, stores, error };
 }
 
 test("WebSocket wrapper keeps statics, instanceof and listener wiring", async () => {
@@ -189,6 +192,21 @@ test("the frame's storage is namespaced per environment and clear() stays inside
 	}
 });
 
+test("the startup diagnostic posts with the patch status attached", async () => {
+	const served = await serveInstrumented();
+	try {
+		const { posts, error } = runShim(served.script, served);
+		const boot = posts.find((p) => p.url.includes("__diag") && p.body.includes('"kind":"frame"'));
+		assert.ok(boot, `startup frame diagnostic posted (error=${error?.message ?? "none"}, posts=${posts.length})`);
+		const patches = JSON.parse(JSON.parse(boot.body).patches);
+		assert.equal(patches.fetch, true, "fetch patched in a normal realm");
+		assert.equal(patches.xhr, true);
+		assert.equal(patches.ws, true);
+	} finally {
+		await served.cleanup();
+	}
+});
+
 test("a frozen fetch accessor is reported, not silently assumed patched", async () => {
 	// If the desktop preload exposes fetch as a getter-only accessor, neither
 	// defineProperty nor assignment can replace it. The shim must say so in its
@@ -209,16 +227,23 @@ test("a frozen fetch accessor is reported, not silently assumed patched", async 
 			WebSocket: FakeWebSocket,
 			navigator: {},
 		};
-		const native = () => Promise.resolve({});
+		// The frozen accessor still lands in our recorder — the point is that the
+		// SHIM cannot replace it, not that the network is dead.
+		const native = (url, init) => { posts.push({ url: String(url), body: String(init?.body ?? "") }); return Promise.resolve({}); };
 		Object.defineProperty(realm, "fetch", { get() { return native; }, configurable: false });
 		const diag = [];
+		const posts = [];
 		realm.globalThis = realm;
 		realm.window = realm;
 		vm.runInNewContext(served.script, realm, { filename: "injected.js" });
 
 		assert.equal(realm.fetch, native, "native fetch untouched when frozen");
-		const reportCall = diag.length; // (frozen fetch cannot report, diag stays empty)
-		assert.equal(reportCall, 0, "diagnostics could not post — as expected");
+		// The diag reporter itself calls the (frozen) fetch — our stub — so the
+		// startup report still lands and must confess that fetch stayed native.
+		const boot = posts.find((p) => p.url.includes("__diag") && p.body.includes('"kind":"frame"'));
+		assert.ok(boot, "startup diagnostic posted");
+		const patches = JSON.parse(JSON.parse(boot.body).patches);
+		assert.equal(patches.fetch, false, "frozen fetch honestly reported as unpatched");
 		// XHR lives on the prototype and stays patchable.
 		const xhr = new realm.XMLHttpRequest();
 		xhr.open("GET", "/sidebar/api/fs.trees");
