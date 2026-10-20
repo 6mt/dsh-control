@@ -239,7 +239,7 @@ test("the injected shim actually rewrites absolute requests (runs in a vm)", asy
 		const base = `http://127.0.0.1:${webPort}${mount.prefix}/`;
 		const sandbox = {
 			URL,
-			location: { origin: `http://127.0.0.1:${webPort}`, host: `127.0.0.1:${webPort}` },
+			location: { origin: `http://127.0.0.1:${webPort}`, host: `127.0.0.1:${webPort}`, protocol: "http:" },
 			document: { baseURI: base },
 			console: { error() {} },
 			setTimeout() {},

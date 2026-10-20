@@ -83,7 +83,7 @@ function runShim(script, { base, host }) {
 		// shipped green: the ReferenceError was invisible to every test.
 		console: { error(...args) { errors.push(args.map(String).join(" ")); } },
 		setTimeout() {},
-		location: { origin: `http://${host}`, host, href: base },
+		location: { origin: `http://${host}`, host, protocol: "http:", href: base },
 		document: { baseURI: base },
 		localStorage: new FakeStorage(),
 		sessionStorage: new FakeStorage(),
@@ -165,6 +165,44 @@ test("same-host absolute requests gain the prefix; foreign and prefixed do not",
 	}
 });
 
+test("a custom-scheme document (desktop shell) still gets absolute requests rewritten", async () => {
+	// The desktop shell serves the frame from dsh-app://app/…. The first version
+	// of the rewriter only allowed http/https/ws/wss, so EVERY absolute request
+	// in the desktop was passed through untouched and hit the local app — the
+	// exact "session not found" symptom, invisible in the http sandbox.
+	const served = await serveInstrumented();
+	try {
+		const realm = {
+			URL,
+			console: { error(...args) { throw new Error("swallowed: " + args.join(" ")); } },
+			setTimeout() {},
+			location: { origin: "dsh-app://app", host: "app", protocol: "dsh-app:", href: served.base },
+			document: { baseURI: `dsh-app://app${served.prefix}` },
+			localStorage: new FakeStorage(),
+			sessionStorage: new FakeStorage(),
+			fetch: (url) => { realm.seen.push(String(url)); return Promise.resolve({}); },
+			Request: class { constructor(url) { this.url = url; } },
+			XMLHttpRequest: class { open(method, url) { realm.seen.push(String(url)); } },
+			EventSource: FakeEventSource,
+			WebSocket: FakeWebSocket,
+			navigator: {},
+		};
+		realm.seen = [];
+		realm.globalThis = realm;
+		realm.window = realm;
+		vm.runInNewContext(served.script, realm, { filename: "injected.js" });
+
+		realm.fetch("/sidebar/api/fs.trees");
+		const rewritten = realm.seen.find((u) => u.includes("sidebar/api"));
+		assert.equal(rewritten, `dsh-app://app${served.prefix}sidebar/api/fs.trees`, "custom-scheme absolute path is prefixed");
+		// Foreign scheme/host still untouched.
+		realm.fetch("https://example.com/x");
+		assert.ok(realm.seen.includes("https://example.com/x"), "foreign origin untouched");
+	} finally {
+		await served.cleanup();
+	}
+});
+
 test("the frame's storage is namespaced per environment and clear() stays inside", async () => {
 	const a = await serveInstrumented("alpha");
 	const b = await serveInstrumented("beta");
@@ -223,7 +261,7 @@ test("a frozen fetch accessor is reported, not silently assumed patched", async 
 			URL,
 			console: { error() {} },
 			setTimeout() {},
-			location: { origin: `http://${served.host}`, host: served.host, href: served.base },
+			location: { origin: `http://${served.host}`, host: served.host, protocol: "http:", href: served.base },
 			document: { baseURI: served.base },
 			localStorage: new FakeStorage(),
 			sessionStorage: new FakeStorage(),
