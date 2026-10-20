@@ -183,6 +183,100 @@ test("the frame gets its own storage namespace (it is same-origin with the shell
 	}
 });
 
+test("same-origin absolute requests are rewritten through the mount prefix", async () => {
+	// The remote UI calls absolute paths like "/sidebar/api/settings.get". With
+	// a same-origin frame those would hit the LOCAL app (wrong data, "session not
+	// found"), so the injected script must rewrite fetch/XHR/EventSource/WS.
+	const upstream = createServer((req, res) => {
+		res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+		res.end("<html><head></head><body>x</body></html>");
+	});
+	const upstreamPort = await listen(upstream);
+	const web = fakeWebServer();
+	const mount = mountEnvironmentProxy(web, "cn", () => ({
+		endpoint: `http://127.0.0.1:${upstreamPort}`, cookieName: "c", cookie: "v",
+		ensureCookie: async () => true,
+	}), { authority: "127.0.0.1:65000" });
+	const webPort = await listen(web.server);
+	try {
+		const answer = await get(`http://127.0.0.1:${webPort}${mount.prefix}/`);
+		assert.match(answer.body, /function toProxy\(input\)/, "rewriter present");
+		assert.match(answer.body, /window\.fetch=function\(input,init\)/, "fetch is wrapped");
+		assert.match(answer.body, /XMLHttpRequest\.prototype\.open=function\(method,url\)/, "XHR is wrapped");
+		assert.match(answer.body, /window\.EventSource=ES/, "EventSource is wrapped");
+		assert.match(answer.body, /window\.WebSocket=WS/, "WebSocket is wrapped");
+		assert.match(answer.body, /url\.pathname=PREFIX\+/, "absolute paths get the prefix");
+	} finally {
+		await close(web.server);
+		await close(upstream);
+	}
+});
+
+test("the injected shim actually rewrites absolute requests (runs in a vm)", async () => {
+	// Executing the injected script beats grepping it: this is the behaviour the
+	// remote UI depends on when it calls "/sidebar/api/…" from a same-origin frame.
+	const upstream = createServer((req, res) => {
+		res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+		res.end("<html><head></head><body>x</body></html>");
+	});
+	const upstreamPort = await listen(upstream);
+	const web = fakeWebServer();
+	const mount = mountEnvironmentProxy(web, "cn", () => ({
+		endpoint: `http://127.0.0.1:${upstreamPort}`, cookieName: "c", cookie: "v",
+		ensureCookie: async () => true,
+	}), { authority: "127.0.0.1:65000" });
+	const webPort = await listen(web.server);
+	try {
+		const answer = await get(`http://127.0.0.1:${webPort}${mount.prefix}/`);
+		const start = answer.body.indexOf("<script>(function(){");
+		const end = answer.body.indexOf("</script>", start);
+		assert.ok(start >= 0 && end > start, "injected script present");
+		const source = answer.body.slice(start + "<script>".length, end);
+
+		const calls = { fetch: [], xhr: [], ws: [], es: [] };
+		const base = `http://127.0.0.1:${webPort}${mount.prefix}/`;
+		const sandbox = {
+			URL,
+			location: { origin: `http://127.0.0.1:${webPort}`, host: `127.0.0.1:${webPort}` },
+			document: { baseURI: base },
+			console: { error() {} },
+			setTimeout() {},
+			fetch: (input) => { calls.fetch.push(String(input)); return Promise.resolve({}); },
+			Request: class { constructor(url) { this.url = url; } },
+			XMLHttpRequest: class { open(method, url) { calls.xhr.push(String(url)); } },
+			EventSource: class { constructor(url) { calls.es.push(String(url)); } },
+			WebSocket: class { constructor(url) { calls.ws.push(String(url)); } },
+			navigator: { sendBeacon: (url) => { calls.fetch.push(String(url)); } },
+			globalThis: undefined,
+		};
+		sandbox.globalThis = sandbox;
+		sandbox.window = sandbox;
+		sandbox.__originalFetch = sandbox.fetch;
+		const vm = await import("node:vm");
+		vm.runInNewContext(source, sandbox, { filename: "injected.js" });
+
+		assert.notEqual(sandbox.window.fetch, sandbox.__originalFetch, "fetch must be replaced");
+		sandbox.window.fetch("/sidebar/api/settings.get");
+		sandbox.fetch(`${mount.prefix}/api/already-prefixed`);
+		new sandbox.XMLHttpRequest().open("POST", "/api/session/list");
+		new sandbox.EventSource("/plugins/events");
+		new sandbox.WebSocket(`ws://127.0.0.1:${webPort}/api/remote.mux`);
+
+		// The injected diagnostics also fetch (the __diag sink), so look for ours.
+		const sidebar = calls.fetch.find((url) => url.includes("sidebar/api"));
+		const prefixed = calls.fetch.find((url) => url.includes("already-prefixed"));
+		assert.equal(sidebar, `${base}sidebar/api/settings.get`, "absolute path gets the prefix");
+		assert.equal(prefixed, `${mount.prefix}/api/already-prefixed`, "already-prefixed stays");
+		assert.equal(calls.xhr[0], `${base}api/session/list`, "XHR rewritten");
+		assert.equal(calls.es[0], `${base}plugins/events`, "EventSource rewritten");
+		const ours = calls.ws.find((url) => url.includes(`:${webPort}/dsh-control/`));
+		assert.equal(ours, `ws://127.0.0.1:${webPort}${mount.prefix}/api/remote.mux`, "WebSocket rewritten");
+	} finally {
+		await close(web.server);
+		await close(upstream);
+	}
+});
+
 test("the diagnostic sink answers locally and is never forwarded upstream", async () => {
 	let upstreamHits = 0;
 	const upstream = createServer((req, res) => {
