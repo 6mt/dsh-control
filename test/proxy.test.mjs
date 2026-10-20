@@ -325,6 +325,82 @@ test("aborting the browser side drops the upstream connection (no leaked SSE)", 
 	}
 });
 
+test("closing the upgraded socket tears down the upstream connection", async () => {
+	// Same leak class as the SSE test, but on the mux path: every panel close
+	// would otherwise leave a live upstream socket against the remote.
+	let upstreamClosed = false;
+	const sockets = [];
+	const upstream = createServer();
+	upstream.on("connection", (socket) => { sockets.push(socket); socket.on("error", () => {}); });
+	upstream.on("upgrade", (req, socket) => {
+		socket.write("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n");
+		// Without resuming, a paused socket never observes the peer's FIN and
+		// its 'close' event would not fire (test artifact, not a product bug).
+		socket.resume();
+		// The proxy may destroy its side (RST) or just close its write half (FIN);
+		// either way the remote end must observe the teardown. Upgrade sockets are
+		// half-open capable, so 'end' is the signal here — not only 'close'.
+		socket.on("close", () => { upstreamClosed = true; });
+		socket.on("end", () => { upstreamClosed = true; });
+		socket.on("error", () => { upstreamClosed = true; });
+	});
+	const upstreamPort = await listen(upstream);
+	const web = fakeWebServer();
+	const mount = mountEnvironmentProxy(web, "cn", () => ({
+		endpoint: `http://127.0.0.1:${upstreamPort}`, cookieName: "c", cookie: "v",
+		ensureCookie: async () => true,
+	}));
+	const webPort = await listen(web.server);
+	try {
+		await new Promise((resolve, reject) => {
+			const req = httpRequest({
+				host: "127.0.0.1", port: webPort, path: `${mount.prefix}/api/remote.mux`,
+				headers: { connection: "Upgrade", upgrade: "websocket", "sec-websocket-key": "k", "sec-websocket-version": "13" },
+				agent: false,
+			});
+			req.on("upgrade", (response, socket) => { socket.destroy(); resolve(); });
+			req.on("error", reject);
+			req.end();
+		});
+		await new Promise((r) => setTimeout(r, 300));
+		assert.equal(upstreamClosed, true, "upstream socket was destroyed when the browser side went away");
+	} finally {
+		for (const socket of sockets) socket.destroy();
+		await close(web.server);
+		await close(upstream);
+	}
+});
+
+test("the asset cache evicts oldest entries when the cap is reached", async () => {
+	// The cap is injectable so eviction is testable without allocating 64 MB.
+	let hits = 0;
+	const body = (tag) => "x".repeat(4_096) + tag;
+	const upstream = createServer((req, res) => {
+		hits += 1;
+		res.writeHead(200, { "content-type": "application/javascript" });
+		res.end(body(req.url));
+	});
+	const upstreamPort = await listen(upstream);
+	const web = fakeWebServer();
+	const mount = mountEnvironmentProxy(web, "cn", () => ({
+		endpoint: `http://127.0.0.1:${upstreamPort}`, cookieName: "c", cookie: "v",
+		ensureCookie: async () => true,
+	}), { cacheMaxBytes: 6_000 });
+	const webPort = await listen(web.server);
+	try {
+		const url = (name) => `http://127.0.0.1:${webPort}${mount.prefix}/assets/${name}.js`;
+		await get(url("a"));           // cached
+		await get(url("b"));           // evicts a (2 × 4 KB > 6 KB cap)
+		await get(url("b"));           // cached
+		const before = hits;
+		await get(url("a"));           // must refetch: a was evicted
+		assert.ok(hits > before, "evicted asset is fetched again");
+	} finally {
+		await close(web.server);
+		await close(upstream);
+	}
+});
+
 test("the mux scanner is bounded: it stops at the byte cap (deterministic)", () => {
 	// Unit-level: prove the bound without TCP timing. Real mux frames are
 	// WebSocket-framed, so the JSON parser rejects them and only the byte cap can

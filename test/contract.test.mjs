@@ -83,6 +83,15 @@ test("proxy mounts are disposed on environment removal and plugin unload", () =>
 	assert.match(hostSource, /for \(const \{ dispose \} of this\.proxyMounts\.values\(\)\)/, "unload disposes every mount");
 });
 
+test("client timers are visibility-aware and event-driven (no idle polling)", () => {
+	// Two resource rules that are easy to regress in UI code:
+	//  - the 15 s remote-session poll must skip a hidden window;
+	//  - the remote-env page must size itself from ResizeObserver, not a timer.
+	assert.match(clientSource, /document\.hidden === true\) return;/, "session poll skips hidden windows");
+	assert.match(clientSource, /new ResizeObserver/, "overlay sizing uses ResizeObserver");
+	assert.doesNotMatch(clientSource, /setInterval\(measure, 500\)/, "no 500 ms layout poll");
+});
+
 test("the tunnel keeper verifies the port on every ensure (no blind trust)", () => {
 	// Trusting a live child process is how a half-dead ssh went unnoticed: the
 	// process lived, its -L listener did not, and every request hit ECONNREFUSED
