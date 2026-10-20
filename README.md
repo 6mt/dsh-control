@@ -29,11 +29,11 @@ modules, no dependencies — the plugin is plain JavaScript and installs as-is.
 <details>
 <summary>GitHub slow or blocked? Install from the release tarball instead</summary>
 
-Download [dsh-control-0.2.0.tgz](https://github.com/6mt/dsh-control/releases/download/v0.2.0/dsh-control-0.2.0.tgz)
+Download [dsh-control-0.2.1.tgz](https://github.com/6mt/dsh-control/releases/download/v0.2.1/dsh-control-0.2.1.tgz)
 and run:
 
 ```sh
-dsh plugin --profile <your profile> add ./dsh-control-0.2.0.tgz
+dsh plugin --profile <your profile> add ./dsh-control-0.2.1.tgz
 ```
 </details>
 
@@ -63,7 +63,7 @@ then:
   **pins it in your profile's lockfile** — it does not silently follow later commits.
 - **Update**: `dsh plugin --profile <your profile> update dsh-control`
   *(pnpm re-resolves the git ref and pulls the new code)*
-- **Pin a version**: `github:6mt/dsh-control#v0.2.0` (tag) or `github:6mt/dsh-control#<commit>`
+- **Pin a version**: `github:6mt/dsh-control#v0.2.1` (tag) or `github:6mt/dsh-control#<commit>`
 - Changes are recorded in [CHANGELOG.md](CHANGELOG.md).
 
 ## How is this different from the same-named `dsh-control` skill?

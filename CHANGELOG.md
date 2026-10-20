@@ -15,6 +15,42 @@
 - 取消远端运行中会话的真实链路实测
 - 直连模式（无需 SSH，适用于只有域名+令牌的远端）
 
+## [0.2.1] - 2026-10-20
+
+### 修复
+- **远程环境里点开「文件」面板报 `session "…" not found`**（本轮最难的一个）：
+  桌面壳用 `dsh-app://` 自定义协议提供页面，而帧内 URL 改写只认 `http/https/ws/wss`，
+  导致远端界面用绝对路径发出的请求（`/sidebar/api/fs.trees` 等）**原样打到本地 dsh**，
+  本地没有远端会话 → 报 not found。现在同 scheme 判断改为与文档自身协议比较，
+  自定义协议同样补代理前缀。沙箱（http）与桌面（dsh-app）行为一致。
+- **帧内存储未隔离**：远端界面能读到底座应用（同源）的 `dsh.sessions.current` 等状态，
+  现在按环境命名空间隔离，`clear()` 也只清自己的命名空间。
+- **启动诊断静默丢失**：注入脚本的 `PATCH` 变量作用域错误被自身的 catch-all 吞掉，
+  导致 `kind:"frame"` 诊断不再上报。已修，并让测试“只要脚本吞掉内部错误就全红”。
+
+### 变更
+- 面板里的「打开界面」改为**跳到应用内「远程环境」页**并选中该环境；
+  「在浏览器打开」保留为次按钮（独立窗口场景）。
+- 远程环境切到别的本地会话再回来**不再重新加载**（iframe 常驻根级浮层）。
+
+### 性能
+- 凭据只验证一次（5 分钟内复用，401 时自动刷新重试），不再每个资源请求都取一次 cookie。
+- 哈希静态资源本地缓存（上限 64MB，`immutable`）：第二次请求 ~1.6ms；整页 10 个资源
+  冷加载 1.97s → 热加载 0.05s。
+- 打开「远程 dsh 环境」面板时后台预热 SSH 通道；`proxyUrl` 增加耗时埋点
+  `DIAG {"tunnelMs","authMs","totalMs"}`。
+
+### 诊断
+- mux 帧遥测：记录每条 `open` 帧的 endpoint/sessionId，以及远端返回的错误帧
+  （`MUX →` / `MUX ←` 前缀），出错的 RPC 在宿主日志里自己报名字。
+
+### 测试
+- 全量 **90 项 / 13 个文件**（`node scripts/run-tests.mjs`），含隐私闸门。
+- 新增注入脚本**行为级** vm 测试（真实执行 + 断言 WebSocket 静态常量/instanceof/事件、
+  URL 改写、存储隔离、自定义协议、冻结 fetch、补丁状态上报）。
+- 注入脚本吞掉内部错误 → 全部用例失败（防止“静默错误”再次上线）。
+- 发版前新增安装验证脚本：`node scripts/verify-install.mjs --source github`。
+
 ## [0.2.0] - 2026-10-18
 
 ### 新增：场景二「远程环境」
@@ -89,7 +125,8 @@
 - 53 项自动化测试（单元 / 界面契约 / 结构不变式）+ 启动自愈集成脚本
 - 结构不变式与集成脚本均做过变异验证（撤掉修复必失败）
 
-[Unreleased]: https://github.com/6mt/dsh-control/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/6mt/dsh-control/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/6mt/dsh-control/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/6mt/dsh-control/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/6mt/dsh-control/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/6mt/dsh-control/releases/tag/v0.1.0
