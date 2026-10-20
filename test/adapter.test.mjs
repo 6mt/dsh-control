@@ -52,3 +52,44 @@ test("mixed content parts still yield the text", () => {
 		"看图",
 	);
 });
+
+// --- channel preparation (a pure helper, so this needs no runtime packages) ---
+import { prepareRemoteChannel } from "../lib/channel.js";
+
+test("the tunnel is ensured before the connection is used", async () => {
+	// Field failure: after a dsh restart the first remote turn died with
+	// "连接被拒绝（本地隧道未启动？）" because nothing had started the tunnel yet.
+	const order = [];
+	const prepared = await prepareRemoteChannel("box", {
+		ensureChannel: async (environment) => { order.push(`ensure:${environment}`); return { ok: true }; },
+		connectionFor: (environment) => { order.push(`connect:${environment}`); return { call() {} }; },
+	});
+	assert.equal(prepared.ok, true);
+	assert.deepEqual(order, ["ensure:box", "connect:box"], "ensure happens first, then lookup");
+});
+
+test("a failed ensure stops the turn with that reason (no connection attempt)", async () => {
+	let looked = false;
+	const prepared = await prepareRemoteChannel("box", {
+		ensureChannel: async () => ({ ok: false, error: "隧道未建立或实例不可达：连接被拒绝（本地隧道未启动？）" }),
+		connectionFor: () => { looked = true; return {}; },
+	});
+	assert.equal(prepared.ok, false);
+	assert.match(prepared.error, /隧道未建立|连接被拒绝/);
+	assert.equal(looked, false, "must not touch the connection when the tunnel is down");
+});
+
+test("an ensure that throws is reported, not swallowed", async () => {
+	const prepared = await prepareRemoteChannel("box", {
+		ensureChannel: async () => { throw new Error("ssh: permission denied"); },
+		connectionFor: () => ({}),
+	});
+	assert.equal(prepared.ok, false);
+	assert.match(prepared.error, /permission denied/);
+});
+
+test("a missing connection is reported with the environment name", async () => {
+	const prepared = await prepareRemoteChannel("box", { connectionFor: () => undefined });
+	assert.equal(prepared.ok, false);
+	assert.match(prepared.error, /box/);
+});
