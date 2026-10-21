@@ -71,7 +71,7 @@ async function serveInstrumented(envName = "cn") {
 }
 
 /** Build a page realm, run the served script in it, return the realm. */
-function runShim(script, { base, host }) {
+function runShim(script, { base, host, expectErrors = false } = {}) {
 	const diag = [];
 	const wsSockets = [];
 	const posts = [];
@@ -100,8 +100,9 @@ function runShim(script, { base, host }) {
 	let error = null;
 	try { vm.runInNewContext(script, realm, { filename: "injected.js" }); }
 	catch (e) { error = e; }
-	// Any swallowed internal error fails whichever test is running.
-	assert.deepEqual(errors, [], "the injected script swallowed an internal error");
+	// Any swallowed internal error fails whichever test is running — unless the
+	// test deliberately breaks the script and asserts the failure is reported.
+	if (expectErrors !== true) assert.deepEqual(errors, [], "the injected script swallowed an internal error");
 	return { realm, diag, posts, wsSockets, stores, error, errors };
 }
 
@@ -248,6 +249,88 @@ test("the startup diagnostic posts with the patch status attached", async () => 
 		assert.equal(patches.ws, true);
 	} finally {
 		await served.cleanup();
+	}
+});
+
+test("an internal script error is still reported to the diag sink (self-healing diagnostics)", async () => {
+	// Round 4 of the session-not-found hunt was wasted because a scoping bug
+	// killed the startup diagnostic and the catch-all only logged to console.
+	// Diagnostics must survive their own bugs: the outer catch reports too.
+	const served = await serveInstrumented();
+	try {
+		// Deliberately break the script the way a real regression would: an
+		// undefined reference at the end of the try block.
+		const broken = served.script.replace("probe();", "probe();\n\tBOGUS_SYMBOL_FOR_TEST.panic();");
+		assert.notEqual(broken, served.script, "mutation applied");
+		const { posts, errors } = runShim(broken, { base: served.base, host: served.host, expectErrors: true });
+		const failure = posts.find((entry) => entry.url.includes("__diag") && entry.body.includes("frame-error"));
+		assert.ok(failure, "the script reported its own internal error");
+		assert.match(failure.body, /BOGUS_SYMBOL_FOR_TEST/, "the error names the cause");
+		assert.ok(errors.length >= 1, "console.error also fired (belt and braces)");
+	} finally {
+		await served.cleanup();
+	}
+});
+
+test("end to end: a request from the remote UI reaches the upstream through the proxy", async () => {
+	// The field bug was a channel-selection failure: absolute-path requests from
+	// the remote UI bypassed the proxy and hit the local app. This test runs the
+	// REAL injected script in a page realm whose fetch performs REAL HTTP through
+	// the mounted proxy, and asserts the upstream actually receives the call.
+	const upstreamHits = [];
+	const upstream = createServer((req, res) => {
+		upstreamHits.push({ url: req.url, cookie: req.headers.cookie ?? "" });
+		if ((req.headers.accept ?? "").includes("text/html")) {
+			res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+			res.end("<html><head></head><body>x</body></html>");
+			return;
+		}
+		res.writeHead(200, { "content-type": "application/json" });
+		res.end("{\"ok\":true}");
+	});
+	const upstreamPort = await listen(upstream);
+	const web = fakeWebServer();
+	const mount = mountEnvironmentProxy(web, "cn", () => ({
+		endpoint: `http://127.0.0.1:${upstreamPort}`, cookieName: "dsh-auth-x", cookie: "secret",
+		ensureCookie: async () => true,
+	}));
+	const webPort = await listen(web.server);
+	try {
+		const answer = await get(`http://127.0.0.1:${webPort}${mount.prefix}/`, { accept: "text/html" });
+		const start = answer.body.indexOf("<script>(function(){");
+		const source = answer.body.slice(start + "<script>".length, answer.body.indexOf("</script>", start));
+		const realm = {
+			URL,
+			fetch, // the REAL fetch — network all the way to the upstream
+			console: { error() {} },
+			setTimeout() {},
+			location: { origin: `http://127.0.0.1:${webPort}`, host: `127.0.0.1:${webPort}`, protocol: "http:" },
+			document: { baseURI: `http://127.0.0.1:${webPort}${mount.prefix}/` },
+			localStorage: new FakeStorage(),
+			sessionStorage: new FakeStorage(),
+			Request,
+			XMLHttpRequest: class { open() {} },
+			EventSource: FakeEventSource,
+			WebSocket: FakeWebSocket,
+			navigator: {},
+		};
+		realm.globalThis = realm;
+		realm.window = realm;
+		const vm = await import("node:vm");
+		vm.runInNewContext(source, realm, { filename: "injected.js" });
+
+		// This is the exact call that used to escape to the local app.
+		await realm.fetch("/sidebar/api/fs.trees", { method: "POST", body: "{}" });
+		const hit = upstreamHits.find((entry) => entry.url.includes("sidebar/api/fs.trees"));
+		assert.ok(hit, "the request reached the upstream");
+		// The proxy strips its prefix before forwarding — the remote app must see
+		// its own URL shape, exactly as a direct browser tab would.
+		assert.equal(hit.url, "/sidebar/api/fs.trees", "the remote app sees its own path (prefix stripped)");
+		// Proof it went through the proxy: the remote's cookie was injected.
+		assert.equal(hit.cookie, "dsh-auth-x=secret", "routed through the proxy (cookie injected)");
+	} finally {
+		await close(web.server);
+		await close(upstream);
 	}
 });
 
