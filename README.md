@@ -150,8 +150,9 @@ never stored. Details in [SECURITY.md](SECURITY.md).
   implemented but not yet exposed in the UI)
 - The remote-environment page **is** the remote's own UI: actions there really affect the
   remote machine (exactly as if you opened it in a browser)
-- The first visit loads the remote's front-end assets (a few seconds depending on the
-  network); later visits do not reload
+- The default environment preloads in the background right after dsh boots (loaded
+  off-screen), so opening the page is instant; only the first seconds of a cold boot
+  still depend on the network
 - Sidebar markers and the streaming feel are verified by eye per release
 - Cancelling a remote turn is implemented but marked experimental
 

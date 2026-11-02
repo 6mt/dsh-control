@@ -83,6 +83,16 @@ test("proxy mounts are disposed on environment removal and plugin unload", () =>
 	assert.match(hostSource, /for \(const \{ dispose \} of this\.proxyMounts\.values\(\)\)/, "unload disposes every mount");
 });
 
+test("the default environment preloads in the background before the page is opened", () => {
+	// The user's expectation: the panel says 已连接, so clicking 远程环境 must be
+	// instant. That only holds if the frame finished loading while the page was
+	// still closed — so neither the env list nor the auto-enter may be gated on
+	// the page being visible.
+	assert.match(clientSource, /setTimeout\(\(\) => \{ void loadEnvs\(\); \}, PRELOAD_DELAY_MS\)/, "a boot-delayed env load is actually scheduled");
+	assert.doesNotMatch(clientSource, /host\.active && envs\.length > 0/, "auto-enter must not wait for the page");
+	assert.match(clientSource, /connected\[0\]\?\.name/, "the default pick prefers a connected environment");
+});
+
 test("the remote-env overlay stays rendered when inactive and warms on visibility", () => {
 	// display:none turns the frame into a hidden document; the browser throttles
 	// its timers and the remote UI came back "reconnecting". Off-screen keeps it
