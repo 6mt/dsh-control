@@ -17,6 +17,9 @@ environment name (③).*
 
 > 🎬 A 15-second capture (one-click connect → streaming reply) is being recorded.
 
+> Working for you? A one-line issue (even just “works” / “install fails with …”) helps a
+> lot — this plugin ships no telemetry, so feedback is the only signal we get.
+
 ## Install
 
 ```sh
