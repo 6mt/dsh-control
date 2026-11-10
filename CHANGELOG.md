@@ -15,6 +15,35 @@
 - 取消远端运行中会话的真实链路实测
 - 直连模式（无需 SSH，适用于只有域名+令牌的远端）
 
+## [0.3.0] - 2026-11-10
+
+### 新增
+- **远程环境后台预载**：dsh 启动约 1.5 秒后在屏外把默认环境整页加载完成，
+  点开即用；只有冷启动头几秒仍取决于网络
+- 窗口回到可见时立即预热所有隧道（`visibilitychange` → `warm`）
+
+### 修复
+- **隧道半死自动重建**：ssh 进程活着但本地监听消失（睡眠/网络切换后常见）
+  不再需要手动重连——`ensure()` 每次实测端口 + 60 秒兜底监督 + 代理遇
+  `ECONNREFUSED` 主动触发重建；隧道事件写入日志（`DIAG {"kind":"tunnel"…}`）
+- **dsh 重启后第一轮远程会话不再报**「隧道未建立或实例不可达：连接被拒绝」：
+  适配器每轮先确保通道再连接
+
+### 性能与资源
+- 远程环境切走后浮层保持渲染（不再 `display:none`），计时器/心跳不被节流，
+  切回即用；尺寸测量改用 ResizeObserver，会话轮询仅在窗口可见时执行
+- mux 遥测有界（64KB/40 条后静默）；下游断开立即释放上游连接（SSE 不再悬挂）；
+  资产缓存上限 64MB 且可淘汰最旧
+
+### 诊断
+- 注入脚本自身出错也会上报（`frame-error`），诊断不再静默消失
+- mux 帧遥测（`MUX →/←`）记录 endpoint/sessionId 与错误帧；启动诊断携带补丁状态
+- 排查守则与完整复盘见 `docs/postmortem-session-not-found.md`
+
+### 测试
+- 90 → **106 项**：注入脚本行为级（协议矩阵 http/dsh-app、吞错即红、自愈上报）、
+  通道选择端到端（真实网络穿代理）、缓存淘汰、断开清理、隧道自愈、预载契约
+
 ## [0.2.1] - 2026-10-20
 
 ### 修复
@@ -125,7 +154,8 @@
 - 53 项自动化测试（单元 / 界面契约 / 结构不变式）+ 启动自愈集成脚本
 - 结构不变式与集成脚本均做过变异验证（撤掉修复必失败）
 
-[Unreleased]: https://github.com/6mt/dsh-control/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/6mt/dsh-control/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/6mt/dsh-control/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/6mt/dsh-control/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/6mt/dsh-control/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/6mt/dsh-control/compare/v0.1.0...v0.1.1

@@ -27,10 +27,10 @@ dsh plugin --profile <你正在用的profile> add github:6mt/dsh-control
 <details>
 <summary>GitHub 慢或连不上？用 Release 里的 tarball 安装</summary>
 
-下载 [dsh-control-0.2.1.tgz](https://github.com/6mt/dsh-control/releases/download/v0.2.1/dsh-control-0.2.1.tgz)，然后：
+下载 [dsh-control-0.3.0.tgz](https://github.com/6mt/dsh-control/releases/download/v0.3.0/dsh-control-0.3.0.tgz)，然后：
 
 ```sh
-dsh plugin --profile <你正在用的profile> add ./dsh-control-0.2.1.tgz
+dsh plugin --profile <你正在用的profile> add ./dsh-control-0.3.0.tgz
 ```
 </details>
 
@@ -60,7 +60,7 @@ dsh plugin --profile <你正在用的profile> add ./dsh-control-0.2.1.tgz
   ```sh
   dsh plugin --profile <你正在用的profile> add github:6mt/dsh-control
   ```
-- **固定版本**：`github:6mt/dsh-control#v0.2.1`（按 tag）或 `github:6mt/dsh-control#<commit>`
+- **固定版本**：`github:6mt/dsh-control#v0.3.0`（按 tag）或 `github:6mt/dsh-control#<commit>`
 - 变更记录见 [CHANGELOG.md](CHANGELOG.md)
 
 ## 和同名的 `dsh-control`（技能）有什么区别？
